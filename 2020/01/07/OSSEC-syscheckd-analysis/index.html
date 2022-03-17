@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 模块功能描述：通过hashtable保存需要监控目录下所有文件的hash值；linux通过inotify实现realtime功能，windows使用ReadDirectoryChangesW实现；模块产生的所有消息都会发送至本地队列queue&#x2F;ossec&#x2F;queue中 0x01 模块流程图  0x02 模块流程 初始化：解析命令行参数、daemon模式、创建本地队列(queue&#x2F;osse">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OSSEC syscheckd模块分析">
+<meta property="og:url" content="http://example.com/2020/01/07/OSSEC-syscheckd-analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 模块功能描述：通过hashtable保存需要监控目录下所有文件的hash值；linux通过inotify实现realtime功能，windows使用ReadDirectoryChangesW实现；模块产生的所有消息都会发送至本地队列queue&#x2F;ossec&#x2F;queue中 0x01 模块流程图  0x02 模块流程 初始化：解析命令行参数、daemon模式、创建本地队列(queue&#x2F;osse">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2020/01/07/OSSEC-syscheckd-analysis/ossec-syscheckd_1_1.png">
+<meta property="article:published_time" content="2020-01-06T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.065Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2020/01/07/OSSEC-syscheckd-analysis/ossec-syscheckd_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>OSSEC syscheckd模块分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2019/12/10/simple-web-server/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&text=OSSEC syscheckd模块分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&is_video=false&description=OSSEC syscheckd模块分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC syscheckd模块分析&body=Check out this article: http://example.com/2020/01/07/OSSEC-syscheckd-analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&name=OSSEC syscheckd模块分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&t=OSSEC syscheckd模块分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E6%A8%A1%E5%9D%97%E5%8A%9F%E8%83%BD%E6%8F%8F%E8%BF%B0%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 模块功能描述：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%A8%A1%E5%9D%97%E6%B5%81%E7%A8%8B%E5%9B%BE"><span class="toc-number">2.</span> <span class="toc-text">0x01 模块流程图</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%A8%A1%E5%9D%97%E6%B5%81%E7%A8%8B"><span class="toc-number">3.</span> <span class="toc-text">0x02 模块流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%A8%A1%E5%9D%97%E4%B8%AD%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">4.</span> <span class="toc-text">0x03 模块中的数据结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%A8%A1%E5%9D%97%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD"><span class="toc-number">5.</span> <span class="toc-text">0x04 模块关键功能</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E5%A5%BD%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF%EF%BC%9A"><span class="toc-number">6.</span> <span class="toc-text">0x05 好的实现思路：</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        OSSEC syscheckd模块分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2020-01-06T16:00:00.000Z" itemprop="datePublished">2020-01-07</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/SourceCodeAnalysis/">SourceCodeAnalysis</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-模块功能描述："><a href="#0x00-模块功能描述：" class="headerlink" title="0x00 模块功能描述："></a>0x00 模块功能描述：</h2><p>通过hashtable保存需要监控目录下所有文件的hash值；linux通过inotify实现realtime功能，windows使用ReadDirectoryChangesW实现；模块产生的所有消息都会发送至本地队列queue/ossec/queue中</p>
+<h2 id="0x01-模块流程图"><a href="#0x01-模块流程图" class="headerlink" title="0x01 模块流程图"></a>0x01 模块流程图</h2><img src="/2020/01/07/OSSEC-syscheckd-analysis/ossec-syscheckd_1_1.png" class="">
+
+<h2 id="0x02-模块流程"><a href="#0x02-模块流程" class="headerlink" title="0x02 模块流程"></a>0x02 模块流程</h2><ol>
+<li>初始化：解析命令行参数、daemon模式、创建本地队列(queue/ossec/queue)、注册信号事件处理、PIDFILE创建、输出监控目录信息及需要实时监控的目录</li>
+<li>Read_Syscheck_Config初始化syscheck_config结构体、rootcheck_init运行rootcheck功能模块</li>
+<li>根据scan_on_start使用send_sk_db进行db存储的初始化：保存realtime的目录名并添加至inotify实例中；保存监控目录下的所有文件至syscheck.fp hashtable中。如果设置了scan_time和scan_day则判断是否已经扫描过</li>
+<li>主循环1:判断当前是否需要执行rootcheck功能；run_rk_check</li>
+<li>主循环2:判断当前时间是否需要执行syscheck功能，如果没有初始化db则调用send_sk_db；发送启动信息至本地队列，并调用run_dbcheck进行扫描：遍历所有目录中所有文件检测是否有hash值变化的，存在则发送至本地队列；发送扫描结束信息至本地队列</li>
+<li>主循环3:处理realtime标记的目录，使用select进行fd的监控，并使用realtime_process进行处理：通过read接收inotify实例检测到发生变化的目录，并使用realtime_checksumfile检测对应文件是否发生了改变将结果发送至本地队列</li>
+</ol>
+<h2 id="0x03-模块中的数据结构"><a href="#0x03-模块中的数据结构" class="headerlink" title="0x03 模块中的数据结构"></a>0x03 模块中的数据结构</h2><p>该模块使用的主要数据结构syscheck_config，主要是针对监控目录信息及配置信息</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">rtfim</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="type">int</span> fd;					<span class="comment">// Linux:inotify_init()；inotify实例</span></span><br><span class="line">    <span class="type">void</span> *dirtb;		<span class="comment">// hashtable；保存需要realtime监控的目录名；windows保存的是文件的handler</span></span><br><span class="line">    <span class="meta">#<span class="keyword">ifdef</span> WIN32</span></span><br><span class="line">    HANDLE evt;			<span class="comment">// Windows使用回调函数的方式来处理实时监控的问题</span></span><br><span class="line">    <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;rtfim;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">config</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="type">int</span> tsleep;            <span class="comment">/* sleep for sometime for daemon to settle */</span></span><br><span class="line">    <span class="type">int</span> sleep_after;</span><br><span class="line">    <span class="type">int</span> rootcheck;         <span class="comment">/* set to 0 when rootcheck is disabled */</span></span><br><span class="line">    <span class="type">int</span> disabled;          <span class="comment">/* is syscheck disabled? */</span></span><br><span class="line">    <span class="type">int</span> scan_on_start;		 <span class="comment">// 是否需要创建syscheck data db；</span></span><br><span class="line">    <span class="type">int</span> realtime_count;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> time;              <span class="comment">/* frequency (secs) for syscheck to run */</span></span><br><span class="line">  												 <span class="comment">// 每次syscheck执行的时间间隔</span></span><br><span class="line">    <span class="type">int</span> <span class="built_in">queue</span>;             <span class="comment">/* file descriptor of socket to write to queue */</span></span><br><span class="line">  												 <span class="comment">// 队列为queue/ossec/queue</span></span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> *opts;             <span class="comment">/* attributes set in the &lt;directories&gt; tag element */</span></span><br><span class="line">  												 <span class="comment">// 保存对应索引文件的属性标记，因为属性都为boolean类型，使用位标记就可以</span></span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> *workdir;         <span class="comment">/* set to the DEFAULTDIR (/var/ossec) */</span></span><br><span class="line">    <span class="type">char</span> *remote_db;</span><br><span class="line">    <span class="type">char</span> *db;</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> *scan_day;        <span class="comment">/* run syscheck on this day eg: sunday, saturday, monday default：NULL */</span></span><br><span class="line">    <span class="type">char</span> *scan_time;       <span class="comment">/* run syscheck at this time eg: 21pm, 8:30, 12am default: NULL */</span></span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> **ignore;         <span class="comment">/* list of files/dirs to ignore */</span></span><br><span class="line">  												 <span class="comment">// 排除目录下特定的子目录和文件的监控</span></span><br><span class="line">    <span class="type">void</span> **ignore_regex;   <span class="comment">/* regex of files/dirs to ignore */</span></span><br><span class="line">  												 <span class="comment">// 排除支持正则的匹配方式</span></span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> **dir;            <span class="comment">/* array of directories to be scanned */</span></span><br><span class="line">  												 <span class="comment">// 监控的文件夹列表；配合索引与对应的opts监控属性进行映射</span></span><br><span class="line">    <span class="type">void</span> **filerestrict;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Windows only registry checking */</span></span><br><span class="line">    <span class="meta">#<span class="keyword">ifdef</span> WIN32</span></span><br><span class="line">    <span class="type">char</span> **registry_ignore;         <span class="comment">/* list of registry entries to ignore */</span></span><br><span class="line">    <span class="type">void</span> **registry_ignore_regex;   <span class="comment">/* regex of registry entries to ignore */</span></span><br><span class="line">    <span class="type">char</span> **registry;                <span class="comment">/* array of registry entries to be scanned */</span></span><br><span class="line">    FILE *reg_fp;</span><br><span class="line">    <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="type">void</span> *fp;							<span class="comment">// hashtable；保存待监控目录中所有文件的hash值</span></span><br><span class="line"></span><br><span class="line">    rtfim *realtime;</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> *prefilter_cmd;		<span class="comment">// 检测每个文件都会进行执行的命令，会严重影响性能</span></span><br><span class="line"></span><br><span class="line">&#125;syscheck_config;</span><br></pre></td></tr></table></figure>
+
+<h2 id="0x04-模块关键功能"><a href="#0x04-模块关键功能" class="headerlink" title="0x04 模块关键功能"></a>0x04 模块关键功能</h2><p><strong>send_sk_db: syscheck.fp保存监控目录下所有文件的hash值；处理标记为realtime的目录，linux：inotify、windows：ReadDirectoryChangesW</strong></p>
+<p>处理的主循环：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">do</span></span><br><span class="line">  &#123;</span><br><span class="line">      <span class="keyword">if</span>(read_dir(syscheck.dir[i], syscheck.opts[i], syscheck.filerestrict[i]) == <span class="number">0</span>)</span><br><span class="line">      &#123;</span><br><span class="line">          <span class="meta">#<span class="keyword">ifdef</span> WIN32</span></span><br><span class="line">          <span class="keyword">if</span>(syscheck.opts[i] &amp; CHECK_REALTIME)</span><br><span class="line">          &#123;</span><br><span class="line">              realtime_adddir(syscheck.dir[i]);</span><br><span class="line">          &#125;</span><br><span class="line">          <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">      &#125;</span><br><span class="line">      i++;</span><br><span class="line">  &#125;<span class="keyword">while</span>(syscheck.dir[i] != <span class="literal">NULL</span>);</span><br></pre></td></tr></table></figure>
+
+<p>read_dir的实现：遍历目录下的文件，如果标记了realtime则使用realtime_adddir处理；并使用read_file进行处理</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  <span class="comment">/* Checking for real time flag. */</span></span><br><span class="line">  <span class="keyword">if</span>(opts &amp; CHECK_REALTIME)</span><br><span class="line">  &#123;</span><br><span class="line">      <span class="meta">#<span class="keyword">ifdef</span> USEINOTIFY</span></span><br><span class="line">      realtime_adddir(dir_name);</span><br><span class="line">      <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">  &#125;</span><br><span class="line">...</span><br><span class="line"><span class="keyword">while</span>((entry = readdir(dp)) != <span class="literal">NULL</span>)</span><br><span class="line">  &#123;</span><br><span class="line">		...</span><br><span class="line">      <span class="built_in">strncpy</span>(s_name, entry-&gt;d_name, PATH_MAX - dir_size <span class="number">-2</span>);</span><br><span class="line">      <span class="comment">/* Check integrity of the file */</span></span><br><span class="line">      read_file(f_name, opts, restriction);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>read_file: 通过hash值判断文件是否发生变更</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">    <span class="keyword">if</span>(S_ISDIR(statbuf.st_mode))	<span class="comment">// 如果是目录则使用read_dir处理</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">return</span>(read_dir(file_name, opts, restriction));</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 获取对应文件的sha1值和md5值</span></span><br><span class="line">												<span class="keyword">if</span>(OS_MD5_SHA1_File(file_name, syscheck.prefilter_cmd, mf_sum, sf_sum) &lt; <span class="number">0</span>)</span><br><span class="line">                        &#123;</span><br><span class="line">                            <span class="built_in">strncpy</span>(mf_sum, <span class="string">&quot;xxx&quot;</span>, <span class="number">4</span>);</span><br><span class="line">                            <span class="built_in">strncpy</span>(sf_sum, <span class="string">&quot;xxx&quot;</span>, <span class="number">4</span>);</span><br><span class="line">                        &#125;</span><br><span class="line"><span class="comment">// 尝试从hashtable中获取该文件的old hash</span></span><br><span class="line">buf = OSHash_Get(syscheck.fp, file_name);</span><br><span class="line">        <span class="keyword">if</span>(!buf)</span><br><span class="line">        &#123;</span><br><span class="line">						...</span><br><span class="line">            <span class="comment">// 不存在添加至hashtable中</span></span><br><span class="line">            <span class="keyword">if</span>(OSHash_Add(syscheck.fp, strdup(file_name), strdup(alert_msg)) &lt;= <span class="number">0</span>)</span><br><span class="line">            <span class="comment">/* changed by chris st_size int to long, 912 to 916*/</span></span><br><span class="line">            <span class="built_in">snprintf</span>(alert_msg, <span class="number">916</span>, <span class="string">&quot;%ld:%d:%d:%d:%s:%s %s&quot;</span>,</span><br><span class="line">                     opts &amp; CHECK_SIZE?(<span class="type">long</span>)statbuf.st_size:<span class="number">0</span>,</span><br><span class="line">                     opts &amp; CHECK_PERM?(<span class="type">int</span>)statbuf.st_mode:<span class="number">0</span>,</span><br><span class="line">                     opts &amp; CHECK_OWNER?(<span class="type">int</span>)statbuf.st_uid:<span class="number">0</span>,</span><br><span class="line">                     opts &amp; CHECK_GROUP?(<span class="type">int</span>)statbuf.st_gid:<span class="number">0</span>,</span><br><span class="line">                     opts &amp; CHECK_MD5SUM?mf_sum:<span class="string">&quot;xxx&quot;</span>,</span><br><span class="line">                     opts &amp; CHECK_SHA1SUM?sf_sum:<span class="string">&quot;xxx&quot;</span>,</span><br><span class="line">                     file_name);</span><br><span class="line">            <span class="comment">// 发送相关信息至本地队列</span></span><br><span class="line">            send_syscheck_msg(alert_msg);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">						<span class="comment">// 存在old hash，则判断文件是否变更</span></span><br><span class="line">            <span class="comment">/* If it returns &lt; 0, we will already have alerted. */</span></span><br><span class="line">            <span class="keyword">if</span>(c_read_file(file_name, buf, c_sum) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span>(<span class="number">0</span>);</span><br><span class="line">						<span class="comment">// 判断新旧hash是否相同</span></span><br><span class="line">            <span class="keyword">if</span>(<span class="built_in">strcmp</span>(c_sum, buf+<span class="number">6</span>) != <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">                ...</span><br><span class="line">                <span class="comment">/* Sending the new checksum to the analysis server */</span></span><br><span class="line">              	<span class="comment">// 如果不同发送新的文件hash信息至本地队列</span></span><br><span class="line">                <span class="built_in">snprintf</span>(alert_msg, <span class="number">916</span>, <span class="string">&quot;%s %s&quot;</span>, c_sum, file_name);</span><br><span class="line">                send_syscheck_msg(alert_msg);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>windows版的realtime_adddir实现：</strong></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  win32rtfim *rtlocald;</span><br><span class="line">  os_calloc(<span class="number">1</span>, <span class="keyword">sizeof</span>(win32rtfim), rtlocald);</span><br><span class="line"><span class="comment">// 获取目录的句柄</span></span><br><span class="line">  rtlocald-&gt;h = CreateFile(dir,</span><br><span class="line">                           FILE_LIST_DIRECTORY,</span><br><span class="line">                           FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,</span><br><span class="line">                           <span class="literal">NULL</span>,</span><br><span class="line">                           OPEN_EXISTING,</span><br><span class="line">                           FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OVERLAPPED,</span><br><span class="line">                           <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* Setting key for hash. */</span></span><br><span class="line">  wdchar[<span class="number">32</span>] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">  <span class="built_in">snprintf</span>(wdchar, <span class="number">32</span>, <span class="string">&quot;%d&quot;</span>, (<span class="type">int</span>)rtlocald-&gt;overlap.Offset);</span><br><span class="line">...</span><br><span class="line">  <span class="comment">/* Adding final elements to the hash. */</span></span><br><span class="line">  os_strdup(dir, rtlocald-&gt;dir);</span><br><span class="line"><span class="comment">// 添加至realtime的hashtable中</span></span><br><span class="line">  OSHash_Add(syscheck.realtime-&gt;dirtb, strdup(wdchar), rtlocald);</span><br><span class="line">  <span class="comment">/* Adding directory to be monitored. */</span></span><br><span class="line"><span class="comment">// 具体的windows realtime的封装</span></span><br><span class="line">  realtime_win32read(rtlocald);</span><br></pre></td></tr></table></figure>
+
+<p>realtime_win32read：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">rc = ReadDirectoryChangesW(rtlocald-&gt;h,</span><br><span class="line">                           rtlocald-&gt;buffer,	<span class="comment">// 通过该buffer来接收事件触发的通知内容</span></span><br><span class="line">                           <span class="keyword">sizeof</span>(rtlocald-&gt;buffer) / <span class="keyword">sizeof</span>(TCHAR),</span><br><span class="line">                           TRUE,</span><br><span class="line">                           FILE_NOTIFY_CHANGE_FILE_NAME|FILE_NOTIFY_CHANGE_DIR_NAME|FILE_NOTIFY_CHANGE_SIZE|FILE_NOTIFY_CHANGE_LAST_WRITE,</span><br><span class="line">                           <span class="number">0</span>,</span><br><span class="line">                           &amp;rtlocald-&gt;overlap,  <span class="comment">// 可以传递给回调函数</span></span><br><span class="line">                           RTCallBack);	<span class="comment">// 异步io完成时，在可提醒的线程中的apc队列中调用该回调函数</span></span><br></pre></td></tr></table></figure>
+
+<p>这里使用接收通知的方式为可提醒io，通过WaitForSingleObjectEx来接收执行线程中apc队列的函数；这里于linux不同每次调用ReadDirectoryChangesW相当于发送一次请求，当请求触发完成时会调用次回调函数，因此在回调函数中需要再调用一次ReadDirectoryChangesW才能继续进行对应目录的监控。</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">void</span> CALLBACK <span class="title function_">RTCallBack</span><span class="params">(DWORD dwerror, DWORD dwBytes, LPOVERLAPPED overlap)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> lcount;</span><br><span class="line">    <span class="type">size_t</span> offset = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> *ptfile;</span><br><span class="line">    <span class="type">char</span> wdchar[<span class="number">32</span> +<span class="number">1</span>];</span><br><span class="line">    <span class="type">char</span> final_path[MAX_LINE +<span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">    win32rtfim *rtlocald;</span><br><span class="line"></span><br><span class="line">    PFILE_NOTIFY_INFORMATION pinfo;</span><br><span class="line">    TCHAR finalfile[MAX_PATH];</span><br><span class="line">		...</span><br><span class="line">    <span class="comment">/* Getting hash to parse the data. */</span></span><br><span class="line">    wdchar[<span class="number">32</span>] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">    <span class="built_in">snprintf</span>(wdchar, <span class="number">32</span>, <span class="string">&quot;%d&quot;</span>, (<span class="type">int</span>)overlap-&gt;Offset);</span><br><span class="line">  	<span class="comment">// 获取对应文件的win32rtfim结构体</span></span><br><span class="line">    rtlocald = OSHash_Get(syscheck.realtime-&gt;dirtb, wdchar);</span><br><span class="line">		...</span><br><span class="line">    <span class="keyword">do</span></span><br><span class="line">    &#123;</span><br><span class="line">        pinfo = (PFILE_NOTIFY_INFORMATION) &amp;rtlocald-&gt;buffer[offset];</span><br><span class="line">        offset += pinfo-&gt;NextEntryOffset;</span><br><span class="line">			  <span class="comment">// 获取发生变动的文件名</span></span><br><span class="line">        lcount = WideCharToMultiByte(CP_ACP, <span class="number">0</span>, pinfo-&gt;FileName,</span><br><span class="line">                                     pinfo-&gt;FileNameLength / <span class="keyword">sizeof</span>(WCHAR),</span><br><span class="line">                                     finalfile, MAX_PATH - <span class="number">1</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line">        finalfile[lcount] = TEXT(<span class="string">&#x27;\0&#x27;</span>);</span><br><span class="line">        <span class="comment">/* Change forward slashes to backslashes on finalfile. */</span></span><br><span class="line">        ptfile = <span class="built_in">strchr</span>(finalfile, <span class="string">&#x27;\\&#x27;</span>);</span><br><span class="line">        <span class="keyword">while</span>(ptfile)</span><br><span class="line">        &#123;</span><br><span class="line">            *ptfile = <span class="string">&#x27;/&#x27;</span>;</span><br><span class="line">            ptfile++;</span><br><span class="line"></span><br><span class="line">            ptfile = <span class="built_in">strchr</span>(ptfile, <span class="string">&#x27;\\&#x27;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        final_path[MAX_LINE] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">        <span class="built_in">snprintf</span>(final_path, MAX_LINE, <span class="string">&quot;%s/%s&quot;</span>, rtlocald-&gt;dir, finalfile);</span><br><span class="line">				<span class="comment">// 这里检查对应文件的hash值是否发生了变更</span></span><br><span class="line">        <span class="comment">/* Checking the change. */</span></span><br><span class="line">        realtime_checksumfile(final_path);</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">        if(pinfo-&gt;Action == FILE_ACTION_ADDED)</span></span><br><span class="line"><span class="comment">        else if(pinfo-&gt;Action == FILE_ACTION_REMOVED)</span></span><br><span class="line"><span class="comment">        else if(pinfo-&gt;Action == FILE_ACTION_MODIFIED)</span></span><br><span class="line"><span class="comment">        else if(pinfo-&gt;Action == FILE_ACTION_RENAMED_OLD_NAME)</span></span><br><span class="line"><span class="comment">        else if(pinfo-&gt;Action == FILE_ACTION_RENAMED_NEW_NAME)</span></span><br><span class="line"><span class="comment">        else</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">    &#125;<span class="keyword">while</span>(pinfo-&gt;NextEntryOffset != <span class="number">0</span>);</span><br><span class="line">	  <span class="comment">// 这里重新发送异步io请求</span></span><br><span class="line">    realtime_win32read(rtlocald);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>linux版的realtime_adddir实现：</strong></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span>(syscheck.realtime-&gt;fd &lt; <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">  	<span class="comment">// 如果inotify的实例不存在则退出</span></span><br><span class="line">    <span class="keyword">return</span>(<span class="number">-1</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="comment">// 将目录添加至inotify的实例中</span></span><br><span class="line">    wd = inotify_add_watch(syscheck.realtime-&gt;fd,</span><br><span class="line">                           dir,</span><br><span class="line">                           REALTIME_MONITOR_FLAGS);</span><br><span class="line">    <span class="keyword">if</span>(wd &lt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        merror(<span class="string">&quot;%s: ERROR: Unable to add directory to real time &quot;</span></span><br><span class="line">               <span class="string">&quot;monitoring: &#x27;%s&#x27;. %d %d&quot;</span>, ARGV0, dir, wd, errno);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">/* Entry not present. */</span></span><br><span class="line">        <span class="comment">// 将目录名保存到realtime的hashtable中</span></span><br><span class="line">        <span class="keyword">if</span>(!OSHash_Get(syscheck.realtime-&gt;dirtb, wdchar))</span><br><span class="line">        &#123;</span><br><span class="line">            OSHash_Add(syscheck.realtime-&gt;dirtb, strdup(wdchar), ndir);</span><br><span class="line">            debug1(<span class="string">&quot;%s: DEBUG: Directory added for real time monitoring: &quot;</span></span><br><span class="line">                   <span class="string">&quot;&#x27;%s&#x27;.&quot;</span>, ARGV0, ndir);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>主循环01:</strong></p>
+<p>定期执行rootkitcheck</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span>(syscheck.rootcheck)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span>(((curr_time - prev_time_rk) &gt; rootcheck.time) || run_now)</span><br><span class="line">    &#123;</span><br><span class="line">        run_rk_check();</span><br><span class="line">        prev_time_rk = time(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>主循环02:  定期执行syscheck扫描功能</strong></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 扫描间隔</span></span><br><span class="line"><span class="keyword">if</span>(((curr_time - prev_time_sk) &gt; syscheck.time) || run_now)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* We need to create the db, if scan on start is not set. */</span></span><br><span class="line">    <span class="keyword">if</span>(syscheck.scan_on_start == <span class="number">0</span>)</span><br><span class="line">    &#123;   <span class="comment">// 如果未初始化则进行db的初始化工作</span></span><br><span class="line">        send_sk_db();</span><br><span class="line">        syscheck.scan_on_start = <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="meta">#<span class="keyword">ifdef</span> WIN32</span></span><br><span class="line">        <span class="comment">/* Checking for registry changes on Windows */</span></span><br><span class="line">        <span class="comment">// windows上所有的hash内容保存在db文件中</span></span><br><span class="line">        os_winreg_check();</span><br><span class="line">        <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">        <span class="comment">/* Checking for changes */</span></span><br><span class="line">        <span class="comment">// 遍历监控目录中所有文件是否发生变更</span></span><br><span class="line">        run_dbcheck();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>run_dbcheck：使用read_dir遍历所有目录下的文件：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>(syscheck.dir[i] != <span class="literal">NULL</span>)</span><br><span class="line">&#123;</span><br><span class="line">    read_dir(syscheck.dir[i], syscheck.opts[i], syscheck.filerestrict[i]);</span><br><span class="line">    i++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>主循环03: 处理realtime监控的目录</strong></p>
+<p>linux实现逻辑：使用select进行fd的扫描，使用realtime_process处理检测到的事件</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  <span class="meta">#<span class="keyword">ifdef</span> USEINOTIFY</span></span><br><span class="line">  <span class="comment">// linux版本</span></span><br><span class="line">  <span class="keyword">if</span>(syscheck.realtime &amp;&amp; (syscheck.realtime-&gt;fd &gt;= <span class="number">0</span>))</span><br><span class="line">  &#123;</span><br><span class="line"><span class="comment">/* zero-out the fd_set */</span></span><br><span class="line">      FD_ZERO (&amp;rfds);</span><br><span class="line">      FD_SET(syscheck.realtime-&gt;fd, &amp;rfds);</span><br><span class="line">      run_now = select(syscheck.realtime-&gt;fd + <span class="number">1</span>, &amp;rfds,</span><br><span class="line">                       <span class="literal">NULL</span>, <span class="literal">NULL</span>, &amp;selecttime);</span><br><span class="line">...</span><br><span class="line">      <span class="keyword">else</span> <span class="keyword">if</span> (FD_ISSET (syscheck.realtime-&gt;fd, &amp;rfds))</span><br><span class="line">      &#123;</span><br><span class="line">          realtime_process();</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">  &#123;</span><br><span class="line">      sleep(SYSCHECK_WAIT);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>realtime_process：获取事件中对应的文件名，检查文件hash值是否发生了改变，将对应的消息发送至本地队列：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  <span class="comment">// 使用read接收具体的inofiy事件</span></span><br><span class="line">len = read(syscheck.realtime-&gt;fd, buf, REALTIME_EVENT_BUFFER);</span><br><span class="line">  <span class="keyword">if</span> (len &lt; <span class="number">0</span>)</span><br><span class="line">  &#123;</span><br><span class="line">      merror(<span class="string">&quot;%s: ERROR: Unable to read from real time buffer.&quot;</span>, ARGV0);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> (len &gt; <span class="number">0</span>)</span><br><span class="line">  &#123;</span><br><span class="line">      <span class="keyword">while</span> (i &lt; len)</span><br><span class="line">      &#123;</span><br><span class="line">          event = (<span class="keyword">struct</span> inotify_event *) &amp;buf[i];</span><br><span class="line"></span><br><span class="line">          <span class="keyword">if</span>(event-&gt;len)</span><br><span class="line">          &#123;</span><br><span class="line">              <span class="built_in">snprintf</span>(wdchar, <span class="number">32</span>, <span class="string">&quot;%d&quot;</span>, event-&gt;wd);</span><br><span class="line">              <span class="built_in">snprintf</span>(final_name, MAX_LINE, <span class="string">&quot;%s/%s&quot;</span>,</span><br><span class="line">                       (<span class="type">char</span> *)OSHash_Get(syscheck.realtime-&gt;dirtb, wdchar),</span><br><span class="line">                       event-&gt;name);</span><br><span class="line">              <span class="comment">// 检测文件hash是否发生了改变</span></span><br><span class="line">              realtime_checksumfile(final_name);</span><br><span class="line">          &#125;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>Windows实现的逻辑：使用WaitForSingleObjectEx接收触发的事件</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">elif</span> WIN32</span></span><br><span class="line"><span class="keyword">if</span>(syscheck.realtime &amp;&amp; (syscheck.realtime-&gt;fd &gt;= <span class="number">0</span>))</span><br><span class="line">&#123;</span><br><span class="line">    run_now = WaitForSingleObjectEx(syscheck.realtime-&gt;evt, SYSCHECK_WAIT * <span class="number">1000</span>, TRUE);</span><br><span class="line">    <span class="keyword">if</span>(run_now == WAIT_FAILED)</span><br><span class="line">    &#123;</span><br><span class="line">        merror(<span class="string">&quot;%s: ERROR: WaitForSingleObjectEx failed (for realtime fim).&quot;</span>, ARGV0);</span><br><span class="line">        sleep(SYSCHECK_WAIT);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">&#123;</span><br><span class="line">    sleep(SYSCHECK_WAIT);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="0x05-好的实现思路："><a href="#0x05-好的实现思路：" class="headerlink" title="0x05 好的实现思路："></a>0x05 好的实现思路：</h2><p>windows中使用ReadDirectoryChangesW函数的可提醒io方式进行文件的实时监控，函数原型：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">BOOL WINAPI <span class="title function_">ReadDirectoryChangesW</span><span class="params">(</span></span><br><span class="line"><span class="params">  _In_        HANDLE                          hDirectory,</span></span><br><span class="line"><span class="params">  _Out_       LPVOID                          lpBuffer,</span></span><br><span class="line"><span class="params">  _In_        DWORD                           nBufferLength,</span></span><br><span class="line"><span class="params">  _In_        BOOL                            bWatchSubtree,</span></span><br><span class="line"><span class="params">  _In_        DWORD                           dwNotifyFilter,</span></span><br><span class="line"><span class="params">  _Out_opt_   LPDWORD                         lpBytesReturned,</span></span><br><span class="line"><span class="params">  _Inout_opt_ LPOVERLAPPED                    lpOverlapped,</span></span><br><span class="line"><span class="params">  _In_opt_    LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine</span></span><br><span class="line"><span class="params">)</span>;</span><br></pre></td></tr></table></figure>
+
+<p>该接口有3种接收通知方式：</p>
+<ul>
+<li>使用可提醒IO, 在参数<em>lpComletionRoutine</em>指定一个回调函数。当<em>ReadDirectoryChangesW</em>异步请求完成时，驱动会将指定的回调函数(<em>lpComletionRoutine</em>)投递到调用线程的APC队列中</li>
+<li>在<em>OVERLAPPED</em>结构中的hEvent成员中设置一个事件句柄，使用<em>GetOverlappedResult</em> 获取完成结果。</li>
+<li>使用IO完成端口，通过<em>GetQueuedComletionStatus</em>获取完成结果。</li>
+</ul>
+<p>通过设置lpCompletionRoutine函数进行事件触发时的回调处理，同时可以将lpOverlapped传递给回调函数。</p>
+<p>详细的使用可参考：<a target="_blank" rel="noopener" href="https://www.jianshu.com/p/9f6529127f1a">https://www.jianshu.com/p/9f6529127f1a</a></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E6%A8%A1%E5%9D%97%E5%8A%9F%E8%83%BD%E6%8F%8F%E8%BF%B0%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 模块功能描述：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%A8%A1%E5%9D%97%E6%B5%81%E7%A8%8B%E5%9B%BE"><span class="toc-number">2.</span> <span class="toc-text">0x01 模块流程图</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%A8%A1%E5%9D%97%E6%B5%81%E7%A8%8B"><span class="toc-number">3.</span> <span class="toc-text">0x02 模块流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%A8%A1%E5%9D%97%E4%B8%AD%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">4.</span> <span class="toc-text">0x03 模块中的数据结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%A8%A1%E5%9D%97%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD"><span class="toc-number">5.</span> <span class="toc-text">0x04 模块关键功能</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E5%A5%BD%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF%EF%BC%9A"><span class="toc-number">6.</span> <span class="toc-text">0x05 好的实现思路：</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&text=OSSEC syscheckd模块分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&is_video=false&description=OSSEC syscheckd模块分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC syscheckd模块分析&body=Check out this article: http://example.com/2020/01/07/OSSEC-syscheckd-analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&title=OSSEC syscheckd模块分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&name=OSSEC syscheckd模块分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/01/07/OSSEC-syscheckd-analysis/&t=OSSEC syscheckd模块分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

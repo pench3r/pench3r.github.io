@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 题目分析自己分析的思路(只是找到验证函数)：  一开始的切入点，通过getwindowtext断点进行跟踪调试，断下后分析之后紧跟的几个函数，简单判断用户的输入长度、是否为数字和字母、以及很关键的一个加密函数，会加密用户的输入，然后返回上层函数  接着会申请新的内存并从42d864处copy数据，又调用解密函数会将传入的数据解密，然后通过后续的4011c0输出到程序的窗体中  跟踪调试到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[reverse] 看雪2016ctf-第二题-solution">
+<meta property="og:url" content="http://example.com/2018/09/07/2016kanxuectf-second/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 题目分析自己分析的思路(只是找到验证函数)：  一开始的切入点，通过getwindowtext断点进行跟踪调试，断下后分析之后紧跟的几个函数，简单判断用户的输入长度、是否为数字和字母、以及很关键的一个加密函数，会加密用户的输入，然后返回上层函数  接着会申请新的内存并从42d864处copy数据，又调用解密函数会将传入的数据解密，然后通过后续的4011c0输出到程序的窗体中  跟踪调试到">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_1.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_2.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_3.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_4.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_5.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_6.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_7.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_8.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_9.png">
+<meta property="og:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_10.png">
+<meta property="article:published_time" content="2018-09-06T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.004Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[reverse] 看雪2016ctf-第二题-solution</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2018/09/17/ecshop2.x-rce/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2018/08/14/task-fly-re/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/09/07/2016kanxuectf-second/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/09/07/2016kanxuectf-second/&text=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/09/07/2016kanxuectf-second/&is_video=false&description=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[reverse] 看雪2016ctf-第二题-solution&body=Check out this article: http://example.com/2018/09/07/2016kanxuectf-second/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/09/07/2016kanxuectf-second/&name=[reverse] 看雪2016ctf-第二题-solution&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/09/07/2016kanxuectf-second/&t=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x00-%E9%A2%98%E7%9B%AE%E5%88%86%E6%9E%90"><span class="toc-number">1.</span> <span class="toc-text">0x00 题目分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x01-%E5%AE%8C%E6%95%B4%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">0x01 完整分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E7%A1%AE%E5%AE%9A%E5%85%B3%E9%94%AE%E7%9A%84%E5%8A%A0%E5%AF%86%E7%AE%97%E6%B3%95RC6"><span class="toc-number"></span> <span class="toc-text">1 确定关键的加密算法RC6</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E9%AA%8C%E8%AF%81%E5%87%BD%E6%95%B0%E4%B8%AD%E7%9A%84LUA"><span class="toc-number"></span> <span class="toc-text">2 验证函数中的LUA</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number"></span> <span class="toc-text">0x03 总结</span></a>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [reverse] 看雪2016ctf-第二题-solution
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2018-09-06T16:00:00.000Z" itemprop="datePublished">2018-09-07</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/ReverseEngineering/">ReverseEngineering</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h3 id="0x00-题目分析"><a href="#0x00-题目分析" class="headerlink" title="0x00 题目分析"></a>0x00 题目分析</h3><p>自己分析的思路(只是找到验证函数)：</p>
+<ol>
+<li><p>一开始的切入点，通过<code>getwindowtext</code>断点进行跟踪调试，断下后分析之后紧跟的几个函数，简单判断用户的输入长度、是否为数字和字母、以及很关键的一个加密函数，会加密用户的输入，然后返回上层函数</p>
+</li>
+<li><p>接着会申请新的内存并从<code>42d864</code>处<code>copy</code>数据，又调用解密函数会将传入的数据解密，然后通过后续的<code>4011c0</code>输出到程序的窗体中</p>
+</li>
+<li><p>跟踪调试到调用<code>41aef1</code>处，后续有跳转，配合<code>setwindowtext</code>调试发现当<code>41aef1</code>返回0时，验证失败；判断<code>41aef1</code>为关键的验证函数</p>
+</li>
+</ol>
+<h3 id="0x01-完整分析"><a href="#0x01-完整分析" class="headerlink" title="0x01 完整分析"></a>0x01 完整分析</h3><h2 id="1-确定关键的加密算法RC6"><a href="#1-确定关键的加密算法RC6" class="headerlink" title="1 确定关键的加密算法RC6"></a>1 确定关键的加密算法RC6</h2><p>首先通过<code>getwindowtext</code>获取用户的输入，后面进行了简单的判断</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_1.png" class="">
+
+<p>对于图中的<code>rc6_dec_msg</code>函数的识别，是通过对应ida的伪代码和C++实现的伪代码所的结论，对照结束后的标注如下：</p>
+<pre><code>.text:0041B3B0                 mov     eax, offset loc_42C70F
+.text:0041B3B5                 call    __EH_prolog
+.text:0041B3BA                 sub     esp, 0A0h
+.text:0041B3C0                 push    esi
+.text:0041B3C1                 push    edi
+.text:0041B3C2                 lea     ecx, [ebp+var_AC]
+.text:0041B3C8                 call    obj_init
+.text:0041B3CD                 mov     edi, [ebp+arg_0]
+.text:0041B3D0                 mov     esi, [ebp+arg_4]
+.text:0041B3D3                 and     [ebp+var_4], 0
+.text:0041B3D7                 lea     ecx, [ebp+var_AC]
+.text:0041B3DD                 push    dword ptr [edi] ; void *
+.text:0041B3DF                 push    dword ptr [esi] ; unsigned int
+.text:0041B3E1                 push    [ebp+arg_8]     ; int
+.text:0041B3E4                 call    desc_via_rc6
+.text:0041B3E9                 push    dword ptr [edi] ; void *
+.text:0041B3EB                 lea     ecx, [ebp+var_AC]
+.text:0041B3F1                 push    dword ptr [esi] ; int
+.text:0041B3F3                 call    cpy_msg_to_input ; update userinput to encrypt text
+.text:0041B3F8                 xor     ecx, ecx
+.text:0041B3FA                 cmp     eax, [esi]
+.text:0041B3FC                 setz    cl
+.text:0041B3FF                 or      [ebp+var_4], 0FFFFFFFFh
+.text:0041B403                 mov     esi, ecx
+.text:0041B405                 lea     ecx, [ebp+var_AC]
+.text:0041B40B                 call    free_buff
+.text:0041B410                 mov     ecx, [ebp+var_C]
+.text:0041B413                 mov     eax, esi
+.text:0041B415                 pop     edi
+.text:0041B416                 pop     esi
+.text:0041B417                 mov     large fs:0, ecx
+.text:0041B41E                 leave
+.text:0041B41F                 retn    0Ch
+</code></pre>
+<p>在<code>desc_via_rc6</code>是主要的rc6算法的解密程序.</p>
+<pre><code>.text:004030B9                 mov     [esi+8], edi
+.text:004030BC                 call    ??2@YAPAXI@Z    ; operator new(uint)
+.text:004030C1                 push    dword ptr [esi+8] ; size_t
+.text:004030C4                 mov     [esi+4], eax
+.text:004030C7                 push    [esp+10h+arg_8] ; void *
+.text:004030CB                 push    eax             ; void *
+.text:004030CC                 call    _memcpy
+.text:004030D1                 mov     eax, [esp+18h+arg_0]
+.text:004030D5                 add     esp, 10h
+.text:004030D8                 mov     ecx, esi
+.text:004030DA                 mov     [esi+9Ch], eax
+.text:004030E0                 push    eax
+.text:004030E1                 call    rc6_keyextend   ; sub_403438
+.text:004030E6                 mov     ecx, esi
+.text:004030E8                 call    rc6_desc        ; sub_40315b
+.text:004030ED                 push    1
+.text:004030EF                 pop     eax
+.text:004030F0                 jmp     short loc_4030F4
+</code></pre>
+<p>识别的关键是通过<code>rc6_keyextend</code>和<code>rc6_desc</code>来识别，通过ida的伪代码对比确认的</p>
+<pre><code>.text:00403442                 call    sub_40342C      ; return 0x5163
+.text:00403447                 mov     ebx, eax
+.text:00403449                 mov     ecx, esi
+.text:0040344B                 or      ebx, 0B7E10000h 
+.text:00403451                 call    sub_403432
+.text:00403456                 push    [ebp+arg_0]       ; return 0x79b9
+.text:00403459                 or      eax, 9E370000h
+</code></pre>
+<p>这个为密钥扩展中的关键信息为rc6的<code>magicnumber</code>，接着下图为<code>rc6_desc</code>的ida伪代码</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_2.png" class="">
+
+<p>对比公开的rc6的伪代码可以得出结论为rc6加密(其实这里需要很深的经验来判断，不过这个加密函数不一定非要分析确定出来)，通过rc6的解密程序来对用户的输入进行了加密</p>
+<p>接着通过<code>rc6_enc_msg</code>的函数对数据进行了解密，同样是比对伪代码确定的功能</p>
+<pre><code>.text:0040311B                 mov     [esi+8], edi
+.text:0040311E                 call    ??2@YAPAXI@Z    ; operator new(uint)
+.text:00403123                 push    dword ptr [esi+8] ; size_t
+.text:00403126                 mov     [esi+4], eax
+.text:00403129                 push    [esp+10h+arg_8] ; void *
+.text:0040312D                 push    eax             ; void *
+.text:0040312E                 call    _memcpy
+.text:00403133                 mov     eax, [esp+18h+arg_0]
+.text:00403137                 add     esp, 10h
+.text:0040313A                 mov     ecx, esi
+.text:0040313C                 mov     [esi+9Ch], eax
+.text:00403142                 push    eax
+.text:00403143                 call    rc6_keyextend   ; sub_403438
+.text:00403148                 mov     ecx, esi
+.text:0040314A                 call    rc6_enc         ; sub_4032b1
+.text:0040314F                 push    1
+.text:00403151                 pop     eax
+</code></pre>
+<p>这里使用了<code>rc6</code>的加密程序解密了数据，后续通过<code>sub_4011c0</code>输出</p>
+<h2 id="2-验证函数中的LUA"><a href="#2-验证函数中的LUA" class="headerlink" title="2 验证函数中的LUA"></a>2 验证函数中的LUA</h2><p>在关键函数<code>41aef1</code>中，同样使用了<code>rc6_enc_msg</code>进行了解密数据,查看buffer中解密的数据如图</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_3.png" class="">
+
+<p>查看数据确定为lua的字节码，需要将该数据dump出来，并解行反编译。这里使用工具为<code>luadec</code>，通过vc编译出<code>lua53.dll</code>和<code>luadec</code>，直接解析会发生失败，发现头部的签名被改变为<code>ls 1 1</code>，这里将其修改为<code>LuaS</code>，<code>S</code>代表<code>lua5.3</code></p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_4.png" class="">
+
+<p>解密出来的lua脚本如下</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_5.png" class="">
+
+<p>可以发现脚本通过判断<code>fnGetRegSnToVerify()</code>的返回值和<code>fnCalcUserInputRegSnAfterEnc(g_strRegSn)</code>返回值是否相等来判断,接着明确思路开始分析这2个函数即可。通过<code>lua53.dll</code>尝试识别<code>lua</code>相关的函数.了解到<code>C</code>中载入<code>lua</code>代码需要调用的相关<code>API</code></p>
+<p>发现在解密后执行的一个函数通过比对函数发现为<code>luaL_loadbufferx</code>，用来将刚刚解密出来的字节码载入到<code>lua</code>虚拟机中,后续同样识别出调用了<code>lua_pcall</code>进行了<code>lua</code>代码的执行. 接着尝试定位<code>fnGetRegSnToVerify</code>和<code>fnCalcUserInputRegSnAfterEnc</code>函数，这里需要配合<code>rc6_enc_msg</code>的解密交叉引用断点来尝试分析相关的上下文，下断重启程序。挨个分析定到相关的字符解密的地方</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_6.png" class="">
+
+<p>定位到<code>winmain</code>函数中<code>41ad8f</code>函数首先对这2个函数分别解行解密然后注册对应的函数，使用<code>lua_pushcclosure</code>将函数压栈，然后配合<code>lua_setglobal</code>进行函数的注册，整理知道<code>fnGetRegSnToVerify</code>地址为<code>sub_4019A2</code>,<code>fnCalcUserInputRegSnAfterEnc</code>地址为<code>sub_4019C7</code>.</p>
+<p><code>fnGetRegSnToVerify</code>会返回固定的32字节数据。</p>
+<pre><code>signed int __cdecl sub_4019A2(int a1)
+&#123;
+  if ( !sub_40369C(a1) )
+    lua_pushlstring(a1, &amp;unk_42D244, 0x20u);
+  return 1;
+&#125;
+</code></pre>
+<p>将<code>42d244</code>处的32字节进行了压栈</p>
+<pre><code>0042D244  A4 47 98 0C 9E 40 D7 F6 EB 76 6E 6D 7E A3 3E EB  ?濦做雟nm~?
+0042D254  D5 51 30 06 7D C0 FB 6C C2 7A 43 C5 A4 C9 B1 FD  誕0&#125;利l聑C扭杀
+</code></pre>
+<p>接着<code>fnCalcUserInputRegSnAfterEnc</code>会接受用户被rc6加密的输入，先后通过2次xor.这里破解的思路是将<code>fnGetRegSnToVerify</code>返回的内容作为输入。其实也可以自己写程序来跑着一小段。</p>
+<p>第一次异或</p>
+<pre><code>0042D224  F5 91 23 5E 8D B0 87 E2 AE EE DE 93 88 F2 AC A3  鯌#^嵃団迵堯
+0042D234  4F 9F B7 61 10 23 FB 30 19 69 B8 AD CE 52 00 6C  O煼a#?i腑蜶.l
+</code></pre>
+<p>第二次异或</p>
+<pre><code>003C6FB0  1A AB D4 70 AE 1A 31 D7 4E 7F 02 27 DA 3A D3 C0  p?1譔&#39;?永
+003C6FC0  C7 BF A0 E2 D7 92 F0 E5 F8 64 D3 04 96 AD 17 41  强犫讙疱鴇?柇A
+</code></pre>
+<p>这里我们通过动态调试将<code>fnCalcUserInputRegSnAfterEnc</code>的输入设置为<code>fnGetRegSnToVerify</code>返回的固定的32字节数据。</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_7.png" class="">
+
+<p>返回的结果如下：</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_8.png" class="">
+
+<p>接着要获取明文就需要对以下密文进行rc6解密</p>
+<pre><code>003C7050  4B 7D 6F 22 BD EA 61 C3 0B E7 B2 D9 2C 6B 41 88  K&#125;o&quot;疥a?绮?kA
+003C7060  5D 71 27 85 BA 71 F0 B9 23 77 28 6C FC 36 A6 D0  ]q&#39;吅q鸸#w(l?π
+</code></pre>
+<p>这里同样使用小技巧，在任意的rc6的加密算法(因为该程序都是使用rc的加密程序来解密数据)处下断替换运行就可以了</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_9.png" class="">
+
+<p>替换完毕，运行查看解密情况</p>
+<img src="/2018/09/07/2016kanxuectf-second/kanxue2016_ctf_1_10.png" class="">
+
+<p>获取到注册码，这个当时测试了几个加密的地方，只有在加密lua字节码的地方可以解密成功，始终还是要写出加密算法解密才是正道。</p>
+<p>PS：算法后续补上</p>
+<h2 id="0x03-总结"><a href="#0x03-总结" class="headerlink" title="0x03 总结"></a>0x03 总结</h2><p>分析这个程序学到了很多东西：</p>
+<ul>
+<li>对于一些函数通过部分关键字的特定确定使用了什么算法以及API，然后对比相应的伪代码来确认。</li>
+<li>对于多个API的配合断点可以更快速的了解程序的运行</li>
+<li>在分析出一个函数的功能后此时需要配合交叉引用来找到相关的关键点</li>
+</ul>
+<p>一些比较薄弱的地方也凸显出来了：</p>
+<ul>
+<li>常见的加密算法，不能自己识别出来，这个还需要自己多去看对应算法伪代码学习</li>
+<li>对于工具的一些使用不是很熟练，例如od中直接dump某段地址的内存数据</li>
+<li>一些常见的应用场景，例如c和lua的结合，相关的API调用</li>
+<li>对于算法的逆向能力还是很弱，大佬们都可以通过汇编直接逆向出整个算法或者是根据伪代码来进行逆向，我这个地方还需要加强</li>
+</ul>
+<p>KEEP Going!!!</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x00-%E9%A2%98%E7%9B%AE%E5%88%86%E6%9E%90"><span class="toc-number">1.</span> <span class="toc-text">0x00 题目分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x01-%E5%AE%8C%E6%95%B4%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">0x01 完整分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E7%A1%AE%E5%AE%9A%E5%85%B3%E9%94%AE%E7%9A%84%E5%8A%A0%E5%AF%86%E7%AE%97%E6%B3%95RC6"><span class="toc-number"></span> <span class="toc-text">1 确定关键的加密算法RC6</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E9%AA%8C%E8%AF%81%E5%87%BD%E6%95%B0%E4%B8%AD%E7%9A%84LUA"><span class="toc-number"></span> <span class="toc-text">2 验证函数中的LUA</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number"></span> <span class="toc-text">0x03 总结</span></a>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/09/07/2016kanxuectf-second/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/09/07/2016kanxuectf-second/&text=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/09/07/2016kanxuectf-second/&is_video=false&description=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[reverse] 看雪2016ctf-第二题-solution&body=Check out this article: http://example.com/2018/09/07/2016kanxuectf-second/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/09/07/2016kanxuectf-second/&title=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/09/07/2016kanxuectf-second/&name=[reverse] 看雪2016ctf-第二题-solution&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/09/07/2016kanxuectf-second/&t=[reverse] 看雪2016ctf-第二题-solution"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

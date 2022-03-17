@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 题目分析该程序是使用MFC编写的，通过运行程序观察到输入password，点击OK会进行验证。因此是常规的破解题目，首先需要找到winproc这是破解的核心，如何找winproc，有如下思路：  在DispatchMessage处下条件断点(这里在最后输入完毕后，再切换到od下断点，然后TAB切换程序点击OK)，条件为调用参数的+4位置处是否为0x202(WM_LBUTTONUP)，然后">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[reverse] 看雪2016ctf-第一题-solution">
+<meta property="og:url" content="http://example.com/2018/08/06/2016kanxuectf-first/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 题目分析该程序是使用MFC编写的，通过运行程序观察到输入password，点击OK会进行验证。因此是常规的破解题目，首先需要找到winproc这是破解的核心，如何找winproc，有如下思路：  在DispatchMessage处下条件断点(这里在最后输入完毕后，再切换到od下断点，然后TAB切换程序点击OK)，条件为调用参数的+4位置处是否为0x202(WM_LBUTTONUP)，然后">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2018/08/06/2016kanxuectf-first/kanxue2016_ctf_1_1.png">
+<meta property="og:image" content="http://example.com/2018/08/06/2016kanxuectf-first/kanxue2016_ctf_1_2.png">
+<meta property="og:image" content="http://example.com/2018/08/06/2016kanxuectf-first/kanxue2016_ctf_1_3.png">
+<meta property="article:published_time" content="2018-08-05T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:49.999Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2018/08/06/2016kanxuectf-first/kanxue2016_ctf_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[reverse] 看雪2016ctf-第一题-solution</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2018/08/14/task-fly-re/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2018/05/10/siteservercms-IRO/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/08/06/2016kanxuectf-first/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/08/06/2016kanxuectf-first/&text=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/08/06/2016kanxuectf-first/&is_video=false&description=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[reverse] 看雪2016ctf-第一题-solution&body=Check out this article: http://example.com/2018/08/06/2016kanxuectf-first/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/08/06/2016kanxuectf-first/&name=[reverse] 看雪2016ctf-第一题-solution&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/08/06/2016kanxuectf-first/&t=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x00-%E9%A2%98%E7%9B%AE%E5%88%86%E6%9E%90"><span class="toc-number">1.</span> <span class="toc-text">0x00 题目分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x01-%E5%AF%BB%E6%89%BE%E6%A0%B8%E5%BF%83%E7%9A%84%E7%AE%97%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">0x01 寻找核心的算法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x02-%E6%A0%B8%E5%BF%83%E7%AE%97%E6%B3%95%E5%88%86%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">0x02 核心算法分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [reverse] 看雪2016ctf-第一题-solution
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2018-08-05T16:00:00.000Z" itemprop="datePublished">2018-08-06</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/ReverseEngineering/">ReverseEngineering</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h3 id="0x00-题目分析"><a href="#0x00-题目分析" class="headerlink" title="0x00 题目分析"></a>0x00 题目分析</h3><p>该程序是使用MFC编写的，通过运行程序观察到输入password，点击OK会进行验证。因此是常规的破解题目，首先需要找到winproc这是破解的核心，如何找winproc，有如下思路：</p>
+<ul>
+<li>在<code>DispatchMessage</code>处下条件断点(这里在最后输入完毕后，再切换到od下断点，然后TAB切换程序点击OK)，条件为调用参数的+4位置处是否为<code>0x202(WM_LBUTTONUP)</code>，然后跟进</li>
+<li>在<code>od</code>中的<code>window</code>中找对应的按键，这里为<code>ok</code>，下消息断点，然后跟进</li>
+<li>通过该模块中引用的<code>字符表</code>找出可能获取用户输入的API下断，这里为<code>GetWindowTextW</code></li>
+<li>关键字搜索，通过unicode中查看有成功信息的引用然后回溯，但是这个方法有点累</li>
+</ul>
+<p>我这里使用的为第一种，直接通过<code>DispatchMessage</code>下断</p>
+<h3 id="0x01-寻找核心的算法"><a href="#0x01-寻找核心的算法" class="headerlink" title="0x01 寻找核心的算法"></a>0x01 寻找核心的算法</h3><p>这里在DispatchMessage断下后，f7步入函数后，然后配合text内存断点，F9断到<code>0x402120</code>,通过堆栈观察message ID是否为我们关心的事件</p>
+<img src="/2018/08/06/2016kanxuectf-first/kanxue2016_ctf_1_1.png" class="">
+
+<p><code>0x111</code>对应<code>WM_COMMAND</code>表示有快捷键按下，这里对应我们的OK键</p>
+<p>接着F8单步往后跟，就发现了createthread调用，观察参数，找到对应的<code>threadfunction</code></p>
+<img src="/2018/08/06/2016kanxuectf-first/kanxue2016_ctf_1_2.png" class="">
+
+<p>接着我们在<code>0x4020e0</code>地址下断，然后这里直接F9运行(这里是猜测该地址可能为核心算法，因此通过这种方式直接进行尝试)发现直接断到了该地址，这里很大几率就为核心算法</p>
+<img src="/2018/08/06/2016kanxuectf-first/kanxue2016_ctf_1_3.png" class="">
+
+<p>这里有2个函数调用，对2个函数简单进行代码查看，得出结论第一个函数为我们最关心的核心算法，而第二个只是最后做了一下垃圾回收。</p>
+<p>接下来我们开始分析关键算法<code>0x401cb0</code></p>
+<p>通过其他人的wp学习到获取算法的思路：</p>
+<ul>
+<li>通过字符串查找成功的信息，查找相关的引用</li>
+<li>判断对应的消息参数，再配合sendmessage和postmessage来查找相关引用的参数是否为对应的消息参数</li>
+<li>再配合GetWindowTextW直接找到获取用户输入的地方</li>
+</ul>
+<p>可以看出思路并非为单一的从头至尾的分析思路，是比较开放的逆向什么效率高就使用什么样的手段，该思路可以放到所有的mfc程序的逆向中</p>
+<h3 id="0x02-核心算法分析"><a href="#0x02-核心算法分析" class="headerlink" title="0x02 核心算法分析"></a>0x02 核心算法分析</h3><p>在<code>0x401cb0</code>中会先通过<code>0x401c00</code>获取我们输入的password，并判断该输入中是否有’b’，如果存在函数返回1，返回0的话程序直接验证错误</p>
+<pre><code>.text:00401C38                 call    ds:GetWindowTextW ; 获取输入
+.text:00401C3E                 mov     cx, [ebp+user_input]
+.text:00401C45                 lea     eax, [ebp+user_input]
+.text:00401C4B                 pop     esi
+.text:00401C4C                 test    cx, cx
+.text:00401C4F                 jz      short loc_401C5B
+.text:00401C51                 cmp     word ptr [eax+2], 0 ; 简单的判断输入是否为空，没有意义
+.text:00401C56                 lea     eax, [eax+2]
+.text:00401C59                 jnz     short loc_401C51
+.text:00401C5B                 xor     eax, eax
+.text:00401C5D                 test    cx, cx
+.text:00401C60                 jz      short fail_jmp
+.text:00401C62                 movzx   ecx, cx
+.text:00401C65                 mov     edx, 62h
+.text:00401C6A                 nop     word ptr [eax+eax+00h]
+.text:00401C70                 cmp     dx, cx          ; 循环判断输入中是否有b
+.text:00401C73                 jz      short success_jmp
+.text:00401C75                 movzx   ecx, [ebp+eax*2+var_CA]
+.text:00401C7D                 inc     eax
+.text:00401C7E                 test    cx, cx
+.text:00401C81                 jnz     short loc_401C70
+.text:00401C83 fail_jmp:                               ; CODE XREF: sub_401C00+60j
+.text:00401C83                 xor     eax, eax
+.text:00401C85                 mov     ecx, [ebp+var_4]
+.text:00401C88                 xor     ecx, ebp
+.text:00401C8A                 call    sub_402CC5
+.text:00401C8F                 mov     esp, ebp
+.text:00401C91                 pop     ebp
+.text:00401C92                 retn
+.text:00401C93 success_jmp:                            ; CODE XREF: sub_401C00+73j
+.text:00401C93                 mov     ecx, [ebp+var_4]
+.text:00401C96                 mov     eax, 1
+.text:00401C9B                 xor     ecx, ebp
+.text:00401C9D                 call    sub_402CC5
+.text:00401CA2                 mov     esp, ebp
+.text:00401CA4                 pop     ebp
+.text:00401CA5                 retn
+</code></pre>
+<p>接着会通过<code>0x4039d0</code>(目前不了解该函数功能)，还有<code>0x402a50</code>,该函数与上个函数功能大致相同，不过是判断输入的字符串中是否存在字母’p’.</p>
+<p>接着会重新调用<code>0x401cb0</code>，不过在调用前将<code>edx</code>设置为<code>1</code>,跟入后发现程序跳转到<code>0x401d57</code></p>
+<pre><code>.text:00401CCE                 test    edx, edx
+.text:00401CD0                 jnz     loc_401D57
+</code></pre>
+<p>在<code>0x401d57</code>中,先通过esi保存输入字符串的长度</p>
+<pre><code>.text:00401DA0                 lea     eax, [eax+2]
+.text:00401DA3                 inc     esi
+.text:00401DA4                 cmp     word ptr [eax], 0
+.text:00401DA8                 jnz     short loc_401DA0
+</code></pre>
+<p>接着有个有趣的函数是<code>0x4048de</code>,主要调用<code>PerformanceCounter</code>来做一个计时器，这个函数会在之前调用一次并保存起来，然后在这次调用后比较差值是否大于2，如果大于2则直接失败。</p>
+<pre><code>.text:00401DC9                 call    sub_4048DE
+.text:00401DCE                 sub     eax, [ebp-0D0h]
+.text:00401DD4                 cmp     eax, 2
+.text:00401DD7                 jg      short loc_401E3E
+</code></pre>
+<p>后续调用<code>0x402870</code>,主要功能是将输入的字符串进行保存到另外一个地址空间，并且返回值为：输入的长度与0x5的异或</p>
+<p>接着会判断之前保存输入长度esi的值是否等于7</p>
+<pre><code>.text:00401DE6                 cmp     esi, 7
+.text:00401DE9                 jnb     short loc_401DF6
+....
+.text:00401DF6 loc_401DF6:                             ; CODE XREF: .text:00401DE9j
+.text:00401DF6                 jbe     short loc_401E24
+</code></pre>
+<p>最后一个call：<code>0x401a60</code>这里应该是最终验证我们的输入是否合格的函数。</p>
+<p>跟入后在<code>0x401bab</code>处，对输入进行异或并保存(后续还会还原)</p>
+<pre><code>.text:00401BA8                 cmp     eax, 2
+.text:00401BAB                 jnb     short loc_401BB4
+.text:00401BAD                 xor     word ptr [esi+eax*2], 0Fh
+.text:00401BB2                 jmp     short loc_401BC5
+.text:00401BB4                 cmp     eax, 4
+.text:00401BB7                 jnb     short loc_401BC0
+.text:00401BB9                 xor     word ptr [esi+eax*2], 50h
+.text:00401BBE                 jmp     short loc_401BC5
+.text:00401BC0                 xor     word ptr [esi+eax*2], 42h
+.text:00401BC5                 inc     eax
+.text:00401BC6                 cmp     eax, ecx
+.text:00401BC8                 jb      short loc_401BA8
+</code></pre>
+<p>继续跟，跟到<code>0x401870</code>,并且参数为异或后的输入，以及一个地址空间。接着就是我们一直要知道的如何判别我们的输入</p>
+<p><code>0x4018a2</code>: 填充临时地址内容为0-9</p>
+<pre><code>.text:004018A2                 mov     [ecx], ax
+.text:004018A5                 lea     ecx, [ecx+2]
+.text:004018A8                 inc     eax
+.text:004018A9                 cmp     eax, 39h
+.text:004018AC                 jle     short loc_4018A2
+</code></pre>
+<p><code>0x4018b6</code>: 填充临时地址内容为a-z</p>
+<pre><code>.text:004018B6                 mov     [ecx], ax
+.text:004018B9                 lea     ecx, [ecx+2]
+.text:004018BC                 inc     eax
+.text:004018BD                 cmp     eax, 7Ah
+.text:004018C0                 jle     short loc_4018B6
+</code></pre>
+<p><code>0x4018e0</code>: 将临时地址中的a-z都转化为大写</p>
+<pre><code>.text:004018E0                 movzx   eax, [ebp+ecx*2+var_50]
+.text:004018E5                 cmp     eax, 61h
+.text:004018E8                 jb      short loc_4018F7
+.text:004018EA                 cmp     eax, 7Ah
+.text:004018ED                 ja      short loc_4018F7
+.text:004018EF                 add     eax, 0FFFFFFE0h
+.text:004018F2                 mov     [ebp+ecx*2+var_50], ax
+.text:004018F7                 inc     ecx
+.text:004018F8                 cmp     ecx, edx
+.text:004018FA                 jb      short loc_4018E0
+</code></pre>
+<p><code>0x401920</code>: 主要是还原之前异或输入</p>
+<pre><code>.text:00401920                 cmp     eax, 2
+.text:00401923                 jnb     short loc_40192C
+.text:00401925                 xor     word ptr [edi+eax*2], 0Fh
+.text:0040192A                 jmp     short loc_40193D
+.text:0040192C loc_40192C:                             ; CODE XREF: sub_401870+B3j
+.text:0040192C                 cmp     eax, 4
+.text:0040192F                 jnb     short loc_401938
+.text:00401931                 xor     word ptr [edi+eax*2], 50h
+.text:00401936                 jmp     short loc_40193D
+.text:00401938 loc_401938:                             ; CODE XREF: sub_401870+BFj
+.text:00401938                 xor     word ptr [edi+eax*2], 42h
+.text:0040193D loc_40193D:                             ; CODE XREF: sub_401870+BAj
+.text:0040193D                                         ; sub_401870+C6j
+.text:0040193D                 inc     eax
+.text:0040193E                 cmp     eax, ecx
+.text:00401940                 jb      short loc_401920
+</code></pre>
+<p><code>0x401960</code>: 将用户的输入中字母都转化为大写</p>
+<pre><code>.text:00401960                 movzx   eax, word ptr [edi+ecx*2]
+.text:00401964                 cmp     eax, 61h
+.text:00401967                 jb      short loc_401975
+.text:00401969                 cmp     eax, 7Ah
+.text:0040196C                 ja      short loc_401975
+.text:0040196E                 add     eax, 0FFFFFFE0h
+.text:00401971                 mov     [edi+ecx*2], ax
+.text:00401975 loc_401975:                             ; CODE XREF: sub_401870+F7j
+.text:00401975                                         ; sub_401870+FCj
+.text:00401975                 inc     ecx
+.text:00401976                 cmp     ecx, edx
+.text:00401978                 jb      short loc_401960
+</code></pre>
+<p><code>0x4019a3</code>: 遍历用户输入并保存找到的大写字母</p>
+<pre><code>.text:004019A3                 cmp     dx, [ecx]
+.text:004019A6                 jz      short loc_4019B8
+.text:004019A8                 inc     eax
+.text:004019A9                 lea     ecx, [ebp+var_50]
+.text:004019AC                 cmp     word ptr [ecx+eax*2], 0
+.text:004019B1                 lea     ecx, [ecx+eax*2]
+.text:004019B4                 jnz     short loc_4019A3
+</code></pre>
+<p><code>0x4019e0</code>: 比较获取到的字母个数是否为2</p>
+<p><code>0x401a10</code>： 判断输入中3-6，是否为15bp</p>
+<pre><code>.text:00401A10                 mov     ax, word ptr [ebp+ecx*2+var_10]
+.text:00401A15                 cmp     ax, [esi]
+.text:00401A18                 jnz     short loc_401A39
+.text:00401A1A                 inc     ecx
+.text:00401A1B                 add     esi, 2
+.text:00401A1E                 cmp     ecx, 4
+.text:00401A21                 jb      short loc_401A10
+</code></pre>
+<p>接着进入最后的一个函数<code>0x401740</code></p>
+<p>在<code>0x401813</code>处判断前2个字符是否为12</p>
+<pre><code>.text:00401810                 mov     ax, [ecx]
+.text:00401813                 cmp     ax, [esi+ecx]
+.text:00401817                 jnz     short loc_40185B
+.text:00401819                 add     edx, 6
+.text:0040181C                 add     ecx, 2
+.text:0040181F                 cmp     edx, 39h
+.text:00401822                 jle     short loc_401810
+</code></pre>
+<p><code>0x401824</code>还会再次判断头2个字符相加是否为<code>0x63</code></p>
+<pre><code>.text:00401824                 movzx   ecx, word ptr [edi+12h]
+.text:00401828                 movzx   eax, word ptr [ebx]
+.text:0040182B                 add     ecx, eax
+.text:0040182D                 cmp     ecx, 63h
+</code></pre>
+<p><code>0x40183e</code>来判断最后一个字符是否为8</p>
+<pre><code>.text:00401832                 mov     eax, [ebp+var_4C]
+.text:00401835                 movzx   ecx, word ptr [edi+0Ch]
+.text:00401839                 add     ecx, [eax]
+.text:0040183B                 mov     eax, [ebp+var_50]
+.text:0040183E                 movzx   eax, word ptr [eax]
+.text:00401841                 cmp     eax, ecx
+</code></pre>
+<p>这样整理得出最终答案为:  1215pb8</p>
+<h3 id="0x03-总结"><a href="#0x03-总结" class="headerlink" title="0x03 总结"></a>0x03 总结</h3><p>分析过程中碰到的困惑：</p>
+<p>很多函数并无法准确判断出功能，并且其中会嵌套很多函数，这里就直接根据参数和返回值来判断该函数的大致功能<br>程序的分支和跳转大部分都是通过经验和猜测来进行判断，是否为正常的验证跳转，目前无法解决<br>很多东西都很模糊，分析起来比较费劲效率低下，也只能继续啃</p>
+<p>KEEP Going!!! :P</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x00-%E9%A2%98%E7%9B%AE%E5%88%86%E6%9E%90"><span class="toc-number">1.</span> <span class="toc-text">0x00 题目分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x01-%E5%AF%BB%E6%89%BE%E6%A0%B8%E5%BF%83%E7%9A%84%E7%AE%97%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">0x01 寻找核心的算法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x02-%E6%A0%B8%E5%BF%83%E7%AE%97%E6%B3%95%E5%88%86%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">0x02 核心算法分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/08/06/2016kanxuectf-first/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/08/06/2016kanxuectf-first/&text=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/08/06/2016kanxuectf-first/&is_video=false&description=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[reverse] 看雪2016ctf-第一题-solution&body=Check out this article: http://example.com/2018/08/06/2016kanxuectf-first/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/08/06/2016kanxuectf-first/&title=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/08/06/2016kanxuectf-first/&name=[reverse] 看雪2016ctf-第一题-solution&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/08/06/2016kanxuectf-first/&t=[reverse] 看雪2016ctf-第一题-solution"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

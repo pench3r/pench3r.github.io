@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="源代码：https:&#x2F;&#x2F;github.com&#x2F;pench3r&#x2F;Program-Study&#x2F;tree&#x2F;master&#x2F;c&#x2F;webserver 两部分：  自己实现的web server tinyhttpd源码分析  关键功能拆分： server socket监听、接收client连接、获取client发送的数据、回复client响应数据 使用线程池处理连接进来的多个client 使用non-block">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[code] 实现简易高并发Web server">
+<meta property="og:url" content="http://example.com/2019/12/10/simple-web-server/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="源代码：https:&#x2F;&#x2F;github.com&#x2F;pench3r&#x2F;Program-Study&#x2F;tree&#x2F;master&#x2F;c&#x2F;webserver 两部分：  自己实现的web server tinyhttpd源码分析  关键功能拆分： server socket监听、接收client连接、获取client发送的数据、回复client响应数据 使用线程池处理连接进来的多个client 使用non-block">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-12-09T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.138Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[code] 实现简易高并发Web server</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2020/01/07/OSSEC-syscheckd-analysis/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2019/07/27/Ossec-Agentd-analysis/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/12/10/simple-web-server/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/12/10/simple-web-server/&text=[code] 实现简易高并发Web server"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/12/10/simple-web-server/&is_video=false&description=[code] 实现简易高并发Web server"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[code] 实现简易高并发Web server&body=Check out this article: http://example.com/2019/12/10/simple-web-server/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/12/10/simple-web-server/&name=[code] 实现简易高并发Web server&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/12/10/simple-web-server/&t=[code] 实现简易高并发Web server"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD%E6%8B%86%E5%88%86%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">关键功能拆分：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E6%B1%A0"><span class="toc-number">2.</span> <span class="toc-text">线程池</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#NON-Block-Epoll"><span class="toc-number">3.</span> <span class="toc-text">NON-Block Epoll</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#HTTP%E5%8D%8F%E8%AE%AE%E8%A7%A3%E6%9E%90"><span class="toc-number">4.</span> <span class="toc-text">HTTP协议解析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tinyhttpd%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="toc-number">5.</span> <span class="toc-text">Tinyhttpd源码分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90http%E5%8D%8F%E8%AE%AE%E7%9A%84%E8%BF%87%E7%A8%8B"><span class="toc-number">5.1.</span> <span class="toc-text">解析http协议的过程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E9%9D%99%E6%80%81%E6%96%87%E4%BB%B6"><span class="toc-number">5.2.</span> <span class="toc-text">处理静态文件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86CGI%E6%96%87%E4%BB%B6"><span class="toc-number">5.3.</span> <span class="toc-text">处理CGI文件</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [code] 实现简易高并发Web server
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2019-12-09T16:00:00.000Z" itemprop="datePublished">2019-12-10</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/Coding/">Coding</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <p>源代码：<a target="_blank" rel="noopener" href="https://github.com/pench3r/Program-Study/tree/master/c/webserver">https://github.com/pench3r/Program-Study/tree/master/c/webserver</a></p>
+<p>两部分：</p>
+<ul>
+<li>自己实现的web server</li>
+<li>tinyhttpd源码分析</li>
+</ul>
+<h2 id="关键功能拆分："><a href="#关键功能拆分：" class="headerlink" title="关键功能拆分："></a>关键功能拆分：</h2><ul>
+<li>server socket监听、接收client连接、获取client发送的数据、回复client响应数据</li>
+<li>使用线程池处理连接进来的多个client</li>
+<li>使用non-blocking epoll来处理高并发</li>
+<li>利用有限状态机来解析http协议</li>
+</ul>
+<h2 id="线程池"><a href="#线程池" class="headerlink" title="线程池"></a>线程池</h2><p>创建固定数量的线程，统一task的格式，主进程通过线程池中的链表添加task，线程池中的子进程都从共享的链表中获取task，并执行</p>
+<p>实现关键点：</p>
+<ul>
+<li><p>对于共享task链表访问操作，主进程通过获取锁再进行task链表的增加操作，添加完毕后使用pthread_cond_signal去唤醒至少一个阻塞的子进程；</p>
+</li>
+<li><p>子进程都会针对task链表进行删除操作，先获取对应的锁，当链表为空时，则使用pthread_cond_wait阻塞进程，等待主进程添加新的任务，该api会进行如下操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">解锁互斥量mutex</span><br><span class="line">阻塞线程，直到另一线程就条件变量cond发出信号</span><br><span class="line">重新锁定mutex</span><br></pre></td></tr></table></figure>
+
+<p>这样的方式避免了子进程的死锁情况，例如子进程获取到了锁但是链表一直为空，主进程又无法获取到锁添加任务，导致死循环</p>
+</li>
+</ul>
+<p>API:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">#include &lt;pthread.h&gt;</span><br><span class="line"></span><br><span class="line">int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr);</span><br><span class="line">int pthread_mutex_lock(pthread_mutex_t *mutex);</span><br><span class="line">int pthread_mutex_unlock(pthread_mutex_t *mutex);</span><br><span class="line"></span><br><span class="line">int pthread_cond_init(pthread_cond_t *restrict cond, const pthread_condattr_t *restrict attr);</span><br><span class="line">int pthread_cond_signal(pthread_cond_t *cond);</span><br><span class="line">int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);</span><br><span class="line"></span><br><span class="line">int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="NON-Block-Epoll"><a href="#NON-Block-Epoll" class="headerlink" title="NON-Block Epoll"></a>NON-Block Epoll</h2><p>将listen_socket、client_socket都通过fcntl设置为O_NONBLOCK，并且都注册为EPOLLIN | EPOLLET事件，再通过epoll_wait进行统一处理</p>
+<p>实现的关键点：</p>
+<ul>
+<li>触发的事件的fd如果是listen socket，则将连接进来的socket处理添加至epoll中</li>
+<li>对于client socket接收的数据循环处理，只有当接收的返回值为0时，表明客户端断开了连接；当接收的返回值为-1，并且errno为EAGAIN时表明为长连接，保留fd继续监听事件</li>
+<li>接收的事件类型为：EPOLLERR、EPOLLHUP、非EPOLLIN时，关闭对应的fd</li>
+<li>event.data.ptr可以传递自定义的参数信息，这样可以在事件处理时更方便保存请求信息</li>
+</ul>
+<p>API：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">#include &lt;sys/epoll.h&gt;</span><br><span class="line"></span><br><span class="line">int epoll_create1(int flag);	// 一般都为0</span><br><span class="line">int epoll_ctl(int epfd, int op, int fd, struct epoll_event *ev);</span><br><span class="line">int epoll_wait(int epfd, struct epoll_event *evlist, int maxevents, int timeout);</span><br><span class="line">struct epoll_event &#123;</span><br><span class="line">    uint32_t events;</span><br><span class="line">    epoll_data_t data;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">typedef union epoll_data &#123;</span><br><span class="line">    void *ptr;</span><br><span class="line">    int fd;</span><br><span class="line">    uint32_t u32;</span><br><span class="line">    uint64_t u64;</span><br><span class="line">&#125; epoll_data_t;</span><br><span class="line"></span><br><span class="line">#include &lt;unistd.h&gt;</span><br><span class="line">#include &lt;fcntl.h&gt;</span><br><span class="line">int fcntl(int fd, int cmd, ... /* arg */ );</span><br></pre></td></tr></table></figure>
+
+<h2 id="HTTP协议解析"><a href="#HTTP协议解析" class="headerlink" title="HTTP协议解析"></a>HTTP协议解析</h2><ul>
+<li>接收数据</li>
+<li>解析请求头部</li>
+<li>解析请求体</li>
+</ul>
+<p>使用有限状态机针对请求头的第一个行处理和剩余请求头处理</p>
+<p>协议的解析涉及很多约定，因此通过添加多个状态完善状态机的解析功能</p>
+<p>解析的uri、header都是通过指针配合长度来定位</p>
+<p>通过chroot来限定根目录，防止跨目录，需要root权限</p>
+<p>文件的读取，可以通过mmap映射到内存中，直接写入socket中；避免从磁盘再次读取整个文件，再写入到socket中</p>
+<h2 id="Tinyhttpd源码分析"><a href="#Tinyhttpd源码分析" class="headerlink" title="Tinyhttpd源码分析"></a>Tinyhttpd源码分析</h2><p>主体框架使用主进程接收连接，再通过创建对应的线程处理http请求，接收固定字节的请求后，依次保存解析到的method、url、query_string；判断接受文件类型，分别处理静态文件和cgi文件</p>
+<h3 id="解析http协议的过程"><a href="#解析http协议的过程" class="headerlink" title="解析http协议的过程"></a>解析http协议的过程</h3><p>使用get_line函数获取固定字节的数据到buf中，返回接收的字节数</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">get_line</span><span class="params">(<span class="type">int</span> sock, <span class="type">char</span> *buf, <span class="type">int</span> size)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="type">char</span> c = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">    <span class="type">int</span> n;</span><br><span class="line">    <span class="keyword">while</span> ((i &lt; size - <span class="number">1</span>) &amp;&amp; (c != <span class="string">&#x27;\n&#x27;</span>))</span><br><span class="line">    &#123;</span><br><span class="line">        n = recv(sock, &amp;c, <span class="number">1</span>, <span class="number">0</span>);</span><br><span class="line">        <span class="comment">/* DEBUG printf(&quot;%02X\n&quot;, c); */</span></span><br><span class="line">        <span class="keyword">if</span> (n &gt; <span class="number">0</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (c == <span class="string">&#x27;\r&#x27;</span>)</span><br><span class="line">            &#123;</span><br><span class="line">                n = recv(sock, &amp;c, <span class="number">1</span>, MSG_PEEK);</span><br><span class="line">                <span class="comment">/* DEBUG printf(&quot;%02X\n&quot;, c); */</span></span><br><span class="line">                <span class="keyword">if</span> ((n &gt; <span class="number">0</span>) &amp;&amp; (c == <span class="string">&#x27;\n&#x27;</span>))</span><br><span class="line">                    recv(sock, &amp;c, <span class="number">1</span>, <span class="number">0</span>);</span><br><span class="line">                <span class="keyword">else</span></span><br><span class="line">                    c = <span class="string">&#x27;\n&#x27;</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            buf[i] = c;</span><br><span class="line">            i++;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            c = <span class="string">&#x27;\n&#x27;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    buf[i] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span>(i);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>遍历数据保存非空格的数据至255字节大小的空间中，该空间名称为method</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span> (!ISspace(buf[i]) &amp;&amp; (i &lt; <span class="keyword">sizeof</span>(method) - <span class="number">1</span>))</span><br><span class="line">&#123;</span><br><span class="line">    method[i] = buf[i];</span><br><span class="line">    i++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>校验method是否为GET或者POST</p>
+<p>继续遍历非空格的数据，保存至255字节大小的空间中，该空间名称为url</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span> (!ISspace(buf[j]) &amp;&amp; (i &lt; <span class="keyword">sizeof</span>(url) - <span class="number">1</span>) &amp;&amp; (j &lt; numchars))</span><br><span class="line">&#123;</span><br><span class="line">    url[i] = buf[j];</span><br><span class="line">    i++; j++;</span><br><span class="line">&#125;</span><br><span class="line">url[i] = <span class="string">&#x27;\0&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>如果请求为GET，解析querystring数据</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (strcasecmp(method, <span class="string">&quot;GET&quot;</span>) == <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    query_string = url;</span><br><span class="line">    <span class="keyword">while</span> ((*query_string != <span class="string">&#x27;?&#x27;</span>) &amp;&amp; (*query_string != <span class="string">&#x27;\0&#x27;</span>))</span><br><span class="line">        query_string++;</span><br><span class="line">    <span class="keyword">if</span> (*query_string == <span class="string">&#x27;?&#x27;</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        cgi = <span class="number">1</span>;</span><br><span class="line">        *query_string = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">        query_string++;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="处理静态文件"><a href="#处理静态文件" class="headerlink" title="处理静态文件"></a>处理静态文件</h3><p>直接通过fgets批量读取文件内容写入socket中</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">void cat(int client, FILE *resource)</span><br><span class="line">&#123;</span><br><span class="line">    char buf[1024];</span><br><span class="line"></span><br><span class="line">    fgets(buf, sizeof(buf), resource);</span><br><span class="line">    while (!feof(resource))</span><br><span class="line">    &#123;</span><br><span class="line">        send(client, buf, strlen(buf), 0);</span><br><span class="line">        fgets(buf, sizeof(buf), resource);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="处理CGI文件"><a href="#处理CGI文件" class="headerlink" title="处理CGI文件"></a>处理CGI文件</h3><p>对于GET请求，丢弃所有header信息</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">buf[0] = &#x27;A&#x27;; buf[1] = &#x27;\0&#x27;;</span><br><span class="line">if (strcasecmp(method, &quot;GET&quot;) == 0)</span><br><span class="line">    while ((numchars &gt; 0) &amp;&amp; strcmp(&quot;\n&quot;, buf))  /* read &amp; discard headers */</span><br><span class="line">        numchars = get_line(client, buf, sizeof(buf));</span><br></pre></td></tr></table></figure>
+
+<p>对于POST请求，通过header Content-Length获取post中的内容，其他header都丢弃</p>
+<p>初始化2个管道，cgi_out和cgi_input，接着开启子进程执行cgi文件，子进程将stdin和stdout绑定到之前初始化的管道</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">dup2(cgi_output[<span class="number">1</span>], STDOUT);	<span class="comment">// 管道的写端与子进程的输出绑定在一起</span></span><br><span class="line">dup2(cgi_input[<span class="number">0</span>], STDIN);		<span class="comment">// 管道的读端与子进程的输入绑定在一起</span></span><br><span class="line">close(cgi_output[<span class="number">0</span>]);</span><br><span class="line">close(cgi_input[<span class="number">1</span>]);</span><br></pre></td></tr></table></figure>
+
+<p>通过环境变量传入参数，再配合execl去执行最后的cgi程序</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="built_in">sprintf</span>(meth_env, <span class="string">&quot;REQUEST_METHOD=%s&quot;</span>, method);</span><br><span class="line">putenv(meth_env);</span><br><span class="line"><span class="keyword">if</span> (strcasecmp(method, <span class="string">&quot;GET&quot;</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="built_in">sprintf</span>(query_env, <span class="string">&quot;QUERY_STRING=%s&quot;</span>, query_string);</span><br><span class="line">    putenv(query_env);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span> &#123;   <span class="comment">/* POST */</span></span><br><span class="line">    <span class="built_in">sprintf</span>(length_env, <span class="string">&quot;CONTENT_LENGTH=%d&quot;</span>, content_length);</span><br><span class="line">    putenv(length_env);</span><br><span class="line">&#125;</span><br><span class="line">execl(path, <span class="literal">NULL</span>);</span><br></pre></td></tr></table></figure>
+
+<p>父进程中：通过管道传递post的内容、通过管道读取cgi脚本执行的输出结果并回传给客户端：</p>
+<p>传递post内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if (strcasecmp(method, &quot;POST&quot;) == 0)</span><br><span class="line">    for (i = 0; i &lt; content_length; i++) &#123;</span><br><span class="line">        recv(client, &amp;c, 1, 0);</span><br><span class="line">        write(cgi_input[1], &amp;c, 1);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>读取输出结果，并通过socket回传给客户端：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (read(cgi_output[0], &amp;c, 1) &gt; 0)</span><br><span class="line">    send(client, &amp;c, 1, 0);</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>可以看到基本流程都相同：通过socket接收请求、解析http协议、针对不同资源进行分发处理、最后再回传给客户端</p>
+<p>但需要在工业上使用，需要考虑框架的扩展性、维护性、健壮性，这个可以参照nginx的源码</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD%E6%8B%86%E5%88%86%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">关键功能拆分：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E6%B1%A0"><span class="toc-number">2.</span> <span class="toc-text">线程池</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#NON-Block-Epoll"><span class="toc-number">3.</span> <span class="toc-text">NON-Block Epoll</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#HTTP%E5%8D%8F%E8%AE%AE%E8%A7%A3%E6%9E%90"><span class="toc-number">4.</span> <span class="toc-text">HTTP协议解析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tinyhttpd%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="toc-number">5.</span> <span class="toc-text">Tinyhttpd源码分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90http%E5%8D%8F%E8%AE%AE%E7%9A%84%E8%BF%87%E7%A8%8B"><span class="toc-number">5.1.</span> <span class="toc-text">解析http协议的过程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E9%9D%99%E6%80%81%E6%96%87%E4%BB%B6"><span class="toc-number">5.2.</span> <span class="toc-text">处理静态文件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86CGI%E6%96%87%E4%BB%B6"><span class="toc-number">5.3.</span> <span class="toc-text">处理CGI文件</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/12/10/simple-web-server/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/12/10/simple-web-server/&text=[code] 实现简易高并发Web server"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/12/10/simple-web-server/&is_video=false&description=[code] 实现简易高并发Web server"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[code] 实现简易高并发Web server&body=Check out this article: http://example.com/2019/12/10/simple-web-server/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/12/10/simple-web-server/&title=[code] 实现简易高并发Web server"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/12/10/simple-web-server/&name=[code] 实现简易高并发Web server&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/12/10/simple-web-server/&t=[code] 实现简易高并发Web server"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

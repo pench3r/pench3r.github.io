@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 前言ossec是开源的HIDS框架，通过分析源码可以掌握常见的HIDS架构，以及各个模块的功能具体实现的方案，对于HIDS安全开发有很好的借鉴作用。 代码git地址：https:&#x2F;&#x2F;github.com&#x2F;ossec&#x2F;ossec-hids&#x2F;tree&#x2F;v2.8.2&#x2F;src&#x2F;os_execd 0x01 模块的功能active response功能对应这个模块.通过&#x2F;var&#x2F;ossec&#x2F;queu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OSSEC execd功能模块分析">
+<meta property="og:url" content="http://example.com/2019/07/26/ossec-execd-analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 前言ossec是开源的HIDS框架，通过分析源码可以掌握常见的HIDS架构，以及各个模块的功能具体实现的方案，对于HIDS安全开发有很好的借鉴作用。 代码git地址：https:&#x2F;&#x2F;github.com&#x2F;ossec&#x2F;ossec-hids&#x2F;tree&#x2F;v2.8.2&#x2F;src&#x2F;os_execd 0x01 模块的功能active response功能对应这个模块.通过&#x2F;var&#x2F;ossec&#x2F;queu">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2019/07/26/ossec-execd-analysis/ossec-execd_1_1.png">
+<meta property="og:image" content="http://example.com/2019/07/26/ossec-execd-analysis/ossec-execd_1_2.png">
+<meta property="og:image" content="http://example.com/2019/07/26/ossec-execd-analysis/ossec-execd_1_3.png">
+<meta property="og:image" content="http://example.com/2019/07/26/ossec-execd-analysis/ossec-execd_1_4.png">
+<meta property="og:image" content="http://example.com/2019/07/26/ossec-execd-analysis/ossec-execd_1_5.png">
+<meta property="article:published_time" content="2019-07-25T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.120Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2019/07/26/ossec-execd-analysis/ossec-execd_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>OSSEC execd功能模块分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2019/07/27/Ossec-Agentd-analysis/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2019/07/25/fastjson-1.2.47-rce/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/07/26/ossec-execd-analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/07/26/ossec-execd-analysis/&text=OSSEC execd功能模块分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/07/26/ossec-execd-analysis/&is_video=false&description=OSSEC execd功能模块分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC execd功能模块分析&body=Check out this article: http://example.com/2019/07/26/ossec-execd-analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/07/26/ossec-execd-analysis/&name=OSSEC execd功能模块分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/07/26/ossec-execd-analysis/&t=OSSEC execd功能模块分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%A8%A1%E5%9D%97%E7%9A%84%E5%8A%9F%E8%83%BD"><span class="toc-number">2.</span> <span class="toc-text">0x01 模块的功能</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%A8%A1%E5%9D%97%E6%80%BB%E8%A7%88"><span class="toc-number">3.</span> <span class="toc-text">0x02 模块总览</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%A8%A1%E5%9D%97%E7%9A%84%E4%B8%BB%E8%A6%81%E6%A1%86%E6%9E%B6"><span class="toc-number">4.</span> <span class="toc-text">0x03 模块的主要框架</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%A8%A1%E5%9D%97%E4%BB%A3%E7%A0%81%E4%B8%AD%E7%9A%84%E5%85%B3%E9%94%AE%E7%82%B9"><span class="toc-number">5.</span> <span class="toc-text">0x04 模块代码中的关键点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E5%88%86%E5%B1%82%E7%9A%84%E6%A8%A1%E5%9D%97%E7%BB%93%E6%9E%84"><span class="toc-number">6.</span> <span class="toc-text">0x05 分层的模块结构</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        OSSEC execd功能模块分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2019-07-25T16:00:00.000Z" itemprop="datePublished">2019-07-26</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/SourceCodeAnalysis/">SourceCodeAnalysis</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-前言"><a href="#0x00-前言" class="headerlink" title="0x00 前言"></a>0x00 前言</h2><p>ossec是开源的HIDS框架，通过分析源码可以掌握常见的HIDS架构，以及各个模块的功能具体实现的方案，对于HIDS安全开发有很好的借鉴作用。</p>
+<p>代码git地址：<a target="_blank" rel="noopener" href="https://github.com/ossec/ossec-hids/tree/v2.8.2/src/os_execd">https://github.com/ossec/ossec-hids/tree/v2.8.2/src/os_execd</a></p>
+<h2 id="0x01-模块的功能"><a href="#0x01-模块的功能" class="headerlink" title="0x01 模块的功能"></a>0x01 模块的功能</h2><p>active response功能对应这个模块.通过/var/ossec/queue/alerts/execq实时接收命令信息，解析命令并执行。接收的信息格式如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">name arg1 arg2 ...</span><br></pre></td></tr></table></figure>
+
+<p>ar.conf中定义name与命令的映射：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># ar.conf中的内容</span><br><span class="line">restart-ossec0 - restart-ossec.sh - 0			# 对应linux系统</span><br><span class="line">restart-ossec0 - restart-ossec.cmd - 0		# 对应windows系统</span><br><span class="line">host-deny600 - host-deny.sh - 600</span><br><span class="line">firewall-drop600 - firewall-drop.sh - 600</span><br></pre></td></tr></table></figure>
+
+<p>可执行的命令都保存在/var/ossec/active-response/bin目录下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">disable-account.sh  ip-customblock.sh  ossec-tweeter.sh  route-null.sh</span><br><span class="line">firewall-drop.sh    ipfw_mac.sh        pf.sh</span><br><span class="line">host-deny.sh        ipfw.sh            restart-ossec.sh</span><br></pre></td></tr></table></figure>
+
+<p><strong>功能演示</strong></p>
+<p>为了方便演示，下载<a target="_blank" rel="noopener" href="https://github.com/ossec/ossec-hids/archive/v2.8.2.tar.gz">源码</a>后，在agent端中src/os_execd/execd.c中使用verbose添加如下输出:</p>
+<img src="/2019/07/26/ossec-execd-analysis/ossec-execd_1_1.png" class="">
+
+<p>添加完后再编译安装(演示在两台虚拟机中，安装模式分别为server,agent)；server安装模式时需要开启active-response功能(默认选项即为开启)：</p>
+<img src="/2019/07/26/ossec-execd-analysis/ossec-execd_1_2.png" class="">
+
+<p>安装完毕后；默认安装路径在/var/ossec中，在server端和agent端使用manage_agents(/var/ossec/bin目录下)命令分别进行agent添加(server)和key的导入(agent)这里不截图了，添加成功后可以在server端看到如下信息：</p>
+<img src="/2019/07/26/ossec-execd-analysis/ossec-execd_1_3.png" class="">
+
+<p>显示了已经连接的agent和可用的active-response命令。这里向agent发送重启命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">root@pwn:/var/ossec# bin/agent_control -R 001</span><br><span class="line"></span><br><span class="line">OSSEC HIDS agent_control: Restarting agent: 001</span><br></pre></td></tr></table></figure>
+
+<p>查看agent端的日志/var/ossec/logs/ossec.log:</p>
+<img src="/2019/07/26/ossec-execd-analysis/ossec-execd_1_4.png" class="">
+
+<p>可以看到解析后的命令及参数，最终会在agent上执行/var/ossec/active-response/bin/restart-ossec.sh脚本</p>
+<p>其他的active-response可以自定义为触发特殊规则会进行执行对应命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&lt;active-response&gt;</span><br><span class="line">  &lt;!-- Firewall Drop response. Block the IP for</span><br><span class="line">     - 600 seconds on the firewall (iptables,</span><br><span class="line">     - ipfilter, etc).</span><br><span class="line">    --&gt;</span><br><span class="line">  &lt;command&gt;firewall-drop&lt;/command&gt;</span><br><span class="line">  &lt;location&gt;local&lt;/location&gt;</span><br><span class="line">  &lt;level&gt;6&lt;/level&gt;</span><br><span class="line">  &lt;timeout&gt;600&lt;/timeout&gt;</span><br><span class="line">&lt;/active-response&gt;</span><br></pre></td></tr></table></figure>
+
+<p>如果触发规则等级&gt;=6时，就可以执行对应的active-response。</p>
+<h2 id="0x02-模块总览"><a href="#0x02-模块总览" class="headerlink" title="0x02 模块总览"></a>0x02 模块总览</h2><ul>
+<li><p>核心功能：通过队列接收消息，解析消息再执行对应命令</p>
+</li>
+<li><p>流程图：</p>
+</li>
+</ul>
+<img src="/2019/07/26/ossec-execd-analysis/ossec-execd_1_5.png" class="">
+
+<h2 id="0x03-模块的主要框架"><a href="#0x03-模块的主要框架" class="headerlink" title="0x03 模块的主要框架"></a>0x03 模块的主要框架</h2><p>下面3部分是抽象出来的主要部分，还有一些细节进行了过滤，了解主框架后，可以根据该框架实现该模块功能，不必拘泥于现有的代码。</p>
+<ul>
+<li><p><strong>模块程序的初始化</strong></p>
+<p>OS_SetName设置全局变量__local_name，用于标示当前程序的名称：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">__local_name = ossec-execd</span><br></pre></td></tr></table></figure>
+
+<p>解析命令行参数：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>((c = getopt(argc, argv, <span class="string">&quot;Vtdhfu:g:D:c:&quot;</span>)) != <span class="number">-1</span>)&#123;</span><br><span class="line">    <span class="keyword">switch</span>(c)&#123;</span><br><span class="line">        <span class="keyword">case</span> <span class="string">&#x27;V&#x27;</span>:</span><br><span class="line">            print_version();</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">		...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>判断ossec组是否存在并设置为当前进程的有效组：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Check if the group given is valid */</span></span><br><span class="line">gid = Privsep_GetGroup(group);</span><br><span class="line"><span class="comment">/* Privilege separation */</span></span><br><span class="line"><span class="keyword">if</span> (Privsep_SetGroup(gid) &lt; <span class="number">0</span>) &#123;</span><br></pre></td></tr></table></figure>
+
+<p>通过ExecdConfig读取主配置文件/etc/conf/ossec.conf,判断是否开启了Active-Response，以及初始化repeated_offenders_timeout(缓存执行过的命令):</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">disable_entry = OS_GetOneContentforElement(&amp;xml, <span class="string">&quot;ossec_config&quot;</span>, <span class="string">&quot;active-response&quot;</span>, <span class="string">&quot;disabled&quot;</span>);</span><br><span class="line"><span class="keyword">if</span> (<span class="built_in">strcmp</span>(disable_entry, <span class="string">&quot;yes&quot;</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">            is_disabled = <span class="number">1</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="built_in">strcmp</span>(disable_entry, <span class="string">&quot;no&quot;</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">            is_disabled = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line"><span class="type">repeated_t</span> = OS_GetOneContentforElement(&amp;xml, <span class="string">&quot;ossec_config&quot;</span>, <span class="string">&quot;active-response&quot;</span>, <span class="string">&quot;repeated_offenders&quot;</span>);</span><br><span class="line">repeated_offenders_timeout[j] = atoi(tmpt);</span><br></pre></td></tr></table></figure>
+
+<p>使用StartSIG2在当前进程中注册相关信号处理：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">pidfile = process_name;	# 当前进程ossec-execd</span><br><span class="line"><span class="title function_">signal</span><span class="params">(SIGHUP, SIG_IGN)</span>;</span><br><span class="line">signal(SIGINT, func);</span><br><span class="line">signal(SIGQUIT, func);</span><br><span class="line">signal(SIGTERM, func);</span><br><span class="line">signal(SIGALRM, func);</span><br><span class="line">signal(SIGPIPE, HandleSIGPIPE);</span><br></pre></td></tr></table></figure>
+
+<p>goDaemon进入demo模式：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  pid = fork();</span><br><span class="line">  <span class="keyword">if</span> (pid) &#123;</span><br><span class="line">      <span class="built_in">exit</span>(<span class="number">0</span>);			# 退出父进程</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/* Become session leader */</span></span><br><span class="line">  <span class="keyword">if</span> (setsid() &lt; <span class="number">0</span>) </span><br><span class="line">  <span class="comment">/* Fork again */</span></span><br><span class="line">  pid = fork();</span><br><span class="line"><span class="keyword">if</span> (pid) &#123;</span><br><span class="line">      <span class="built_in">exit</span>(<span class="number">0</span>);	# 继续退出父进程</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/* Dup stdin, stdout and stderr to /dev/null */</span></span><br><span class="line">  <span class="keyword">if</span> ((fd = open(<span class="string">&quot;/dev/null&quot;</span>, O_RDWR)) &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">      dup2(fd, <span class="number">0</span>);</span><br><span class="line">      dup2(fd, <span class="number">1</span>);</span><br><span class="line">      dup2(fd, <span class="number">2</span>);</span><br><span class="line">      close(fd);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/* Go to / */</span></span><br><span class="line">  <span class="keyword">if</span> (chdir(<span class="string">&quot;/&quot;</span>) == <span class="number">-1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>CreatePID创建对应的PIDFILE:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span>(isChroot())</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">snprintf</span>(file,<span class="number">255</span>,<span class="string">&quot;%s/%s-%d.pid&quot;</span>,OS_PIDFILE,name,pid);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">snprintf</span>(file,<span class="number">255</span>,<span class="string">&quot;%s%s/%s-%d.pid&quot;</span>,DEFAULTDIR,</span><br><span class="line">            OS_PIDFILE,name,pid);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>StartMQ创建核心队列，默认为/var/ossec/queue/alerts/execq:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Start exec queue */</span></span><br><span class="line"><span class="keyword">if</span> ((m_queue = StartMQ(EXECQUEUEPATH, READ)) &lt; <span class="number">0</span>) &#123;</span><br></pre></td></tr></table></figure></li>
+<li><p><strong>模块相关配置文件加载</strong></p>
+<p>在初始化的过程中已经加载过主配置文件，判断active-response功能是否开启、初始化repeated_offenders_timeout。另外加载一个配置文件/var/ossec/etc/shared/ar.conf，该配置文件用于定义name与命令的映射，server与client之间传递的是name。</p>
+<p>ReadExecConfig用于解析配置文件，将映射保存在exec_name、exec_cmd、exec_timeout数组中</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  <span class="keyword">while</span> (fgets(buffer, OS_MAXSTR, fp) != <span class="literal">NULL</span>) &#123;</span><br><span class="line"># 命令的格式为: name - command - timeout\n</span><br><span class="line">      <span class="comment">/* Clean up the buffer */</span></span><br><span class="line">      tmp_str = <span class="built_in">strstr</span>(buffer, <span class="string">&quot; - &quot;</span>);</span><br><span class="line">      <span class="comment">/* Set the name */</span></span><br><span class="line">      <span class="built_in">strncpy</span>(exec_names[exec_size], str_pt, OS_FLSIZE);</span><br><span class="line">      <span class="comment">/* Search for &#x27; &#x27; and - */</span></span><br><span class="line">      tmp_str = <span class="built_in">strstr</span>(tmp_str, <span class="string">&quot; - &quot;</span>);</span><br><span class="line">      <span class="comment">// Directory traversal test</span></span><br><span class="line">      <span class="keyword">if</span> (w_ref_parent_folder(str_pt)) &#123;</span><br><span class="line">			...</span><br><span class="line">       &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">          <span class="comment">/* Write the full command path */</span></span><br><span class="line">          <span class="built_in">snprintf</span>(exec_cmd[exec_size], OS_FLSIZE,</span><br><span class="line">                   <span class="string">&quot;%s/%s&quot;</span>,</span><br><span class="line">                   AR_BINDIRPATH,</span><br><span class="line">                   str_pt);</span><br><span class="line">				# 检查命令文件是否可以访问</span><br><span class="line">              exec_cmd[exec_size][<span class="number">0</span>] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">          &#125;</span><br><span class="line">      &#125;</span><br><span class="line">      tmp_str = <span class="built_in">strchr</span>(tmp_str, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line">      <span class="comment">/* Get the exec timeout */</span></span><br><span class="line">      exec_timeout[exec_size] = atoi(str_pt);</span><br><span class="line">      <span class="comment">/* Check if name is duplicated */</span></span><br><span class="line">		# 检测是否有重复命令，存在则进行重置</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用w_ref_parent_folder来阻止目录穿越漏洞</p>
+</li>
+<li><p><strong>主循环</strong></p>
+<p>循环开始进行子进程执行情况的统计更新(子进程为执行命令)</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Cleaning up any child. */</span></span><br><span class="line"><span class="keyword">while</span> (childcount)</span><br><span class="line">&#123;</span><br><span class="line">    wp = waitpid((<span class="type">pid_t</span>) <span class="number">-1</span>, <span class="literal">NULL</span>, WNOHANG);</span><br><span class="line">    <span class="keyword">if</span> (wp &gt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        childcount--;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过waitpid非阻塞的状态获取执行情况；通过timeout_list进行超时任务的检测执行</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">timeout_node = OSList_GetFirstNode(timeout_list);</span><br><span class="line"><span class="keyword">while</span>(timeout_node)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* Timeouted */</span></span><br><span class="line">    <span class="keyword">if</span>(timeout_node is timeout)</span><br><span class="line">    &#123;</span><br><span class="line">        ExecCmd(list_entry-&gt;command);</span><br><span class="line">        OSList_DeleteCurrentlyNode(timeout_list);</span><br><span class="line">        childcount++;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">        timeout_node = OSList_GetNextNode(timeout_list);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行并删除超时的节点；select检测主队列中是否有需要执行的任务：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Adding timeout */</span></span><br><span class="line"><span class="keyword">if</span>(select(q+<span class="number">1</span>, &amp;fdset, <span class="literal">NULL</span>, <span class="literal">NULL</span>, &amp;socket_timeout) == <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* Timeout .. */</span></span><br><span class="line">    <span class="keyword">continue</span>;</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line"><span class="comment">/* Receiving the message */</span></span><br><span class="line"><span class="keyword">if</span>(OS_RecvUnix(q, buffer, OS_MAXSTR, <span class="number">0</span>) == <span class="number">-1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>解析接收的命令使用GetCommandbyName获取到实际需要执行的脚本：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">for</span> (; i &lt; exec_size; i++) &#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">strcmp</span>(name, exec_names[i]) == <span class="number">0</span>) &#123;</span><br><span class="line">        *timeout = exec_timeout[i];</span><br><span class="line">        <span class="keyword">return</span> (exec_cmd[i]);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最后使用ExecCmd进行命令的执行，选择是否需要添加至timeout_list中。</p>
+</li>
+</ul>
+<h2 id="0x04-模块代码中的关键点"><a href="#0x04-模块代码中的关键点" class="headerlink" title="0x04 模块代码中的关键点"></a>0x04 模块代码中的关键点</h2><ul>
+<li><p><strong>数据结构</strong></p>
+<p>Timeout_list用于保存超时任务：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">OSListNode</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> _<span class="title">OSListNode</span> *<span class="title">next</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> _<span class="title">OSListNode</span> *<span class="title">prev</span>;</span></span><br><span class="line">    <span class="type">void</span> *data;</span><br><span class="line">&#125;OSListNode;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">OSList</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    OSListNode *first_node;</span><br><span class="line">    OSListNode *last_node;</span><br><span class="line">    OSListNode *cur_node;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> currently_size;</span><br><span class="line">    <span class="type">int</span> max_size;</span><br><span class="line"></span><br><span class="line">    <span class="type">void</span> (*free_data_function)(<span class="type">void</span> *data);</span><br><span class="line">&#125;OSList;</span><br></pre></td></tr></table></figure>
+
+<p>repeated_hash用于保存执行过命令的次数：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Node structure */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">OSHashNode</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> _<span class="title">OSHashNode</span> *<span class="title">next</span>;</span></span><br><span class="line"></span><br><span class="line">    <span class="type">void</span> *key;</span><br><span class="line">    <span class="type">void</span> *data;</span><br><span class="line">&#125;OSHashNode;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">OSHash</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> rows;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> initial_seed;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> constant;</span><br><span class="line"></span><br><span class="line">    OSHashNode **table;</span><br><span class="line">&#125;OSHash;</span><br></pre></td></tr></table></figure>
+
+<p>类似于key-value的结构</p>
+</li>
+<li><p>/var/ossec/queue/alerts/execq是该功能模块对外的唯一接口，信息会由agentd模块和analysis模块产生</p>
+</li>
+<li><p>ar.conf配置文件中定义name与命令的映射，定义格式为：</p>
+<figure class="highlight plaintext"><figcaption><span>- restart-ossec.sh - 0</span></figcaption><table><tr><td class="code"><pre><span class="line">name - cmd - timeout</span><br><span class="line"></span><br><span class="line">例子：</span><br><span class="line">restart-ossec0 - restart-ossec.sh - 0</span><br></pre></td></tr></table></figure>
+
+<p>该cmd会与目录/var/ossec/active-response/bin/进行拼接形成最后的执行命令.</p>
+<p>w_ref_parent_folder用来防止目录穿越：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">switch</span> (path[<span class="number">0</span>]) &#123;</span><br><span class="line"> <span class="keyword">case</span> <span class="string">&#x27;\0&#x27;</span>:</span><br><span class="line">     <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"> <span class="keyword">case</span> <span class="string">&#x27;.&#x27;</span>:</span><br><span class="line">     <span class="keyword">switch</span> (path[<span class="number">1</span>]) &#123;</span><br><span class="line">     <span class="keyword">case</span> <span class="string">&#x27;\0&#x27;</span>:</span><br><span class="line">         <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">     <span class="keyword">case</span> <span class="string">&#x27;.&#x27;</span>:</span><br><span class="line">         <span class="keyword">switch</span> (path[<span class="number">2</span>]) &#123;</span><br><span class="line">         <span class="keyword">case</span> <span class="string">&#x27;\0&#x27;</span>:</span><br><span class="line">             <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">         <span class="keyword">case</span> <span class="string">&#x27;/&#x27;</span>:</span><br><span class="line">             <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">         &#125;</span><br><span class="line">     &#125;</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="keyword">for</span> (str = path; ptr = <span class="built_in">strstr</span>(str, <span class="string">&quot;/..&quot;</span>), ptr; str = ptr + <span class="number">3</span>) &#123;</span><br><span class="line">     <span class="keyword">if</span> (ptr[<span class="number">3</span>] == <span class="string">&#x27;\0&#x27;</span> || ptr[<span class="number">3</span>] == <span class="string">&#x27;/&#x27;</span>) &#123;</span><br><span class="line">         <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">     &#125;</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="keyword">return</span> <span class="number">0</span>;</span><br></pre></td></tr></table></figure></li>
+<li><p>主循环中的timeout_list(用于保存timeout值大于0的任务)，如果后续接收的命令存在于该结构体时，则会通过repeated_offenders_timeout对应的hashtable更新命令时间设置</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>(timeout_node)</span><br><span class="line">&#123;</span><br><span class="line">    timeout_data *list_entry;</span><br><span class="line">  </span><br><span class="line">    list_entry = (timeout_data *)timeout_node-&gt;data;</span><br><span class="line">    <span class="keyword">if</span>(命令和参数与该节点的相同)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">/* Means we executed this command before</span></span><br><span class="line"><span class="comment">         * and we don&#x27;t need to add it again.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        added_before = <span class="number">1</span>;</span><br><span class="line">        <span class="comment">/* updating the timeout */</span></span><br><span class="line">        list_entry-&gt;time_of_addition = curr_time;</span><br><span class="line">  </span><br><span class="line">        <span class="keyword">if</span>(hash存在 并且 命令的参数为<span class="string">&#x27;-&#x27;</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="built_in">snprintf</span>(rkey, <span class="number">255</span>, <span class="string">&quot;%s%s&quot;</span>, list_entry-&gt;command[<span class="number">0</span>], timeout_args[<span class="number">3</span>]);</span><br><span class="line">          	# 更新或添加至hashtable中</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* Continue with the next entry in timeout list*/</span></span><br><span class="line">    timeout_node = OSList_GetNextNode(timeout_list);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以及在最后执行命令时，会根据映射命令的timeout值来决定是否添加到timeout_list和hashtable中</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span>(!added_before)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* executing command */</span></span><br><span class="line">    ExecCmd(cmd_args);</span><br><span class="line">    <span class="comment">/* We don&#x27;t need to add to the list if the timeout_value == 0 */</span></span><br><span class="line">    <span class="keyword">if</span>(timeout_value)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">snprintf</span>(rkey, <span class="number">255</span>, <span class="string">&quot;%s%s&quot;</span>, timeout_args[<span class="number">0</span>],</span><br><span class="line">                                    timeout_args[<span class="number">3</span>]);</span><br><span class="line"># 判断是否需要添加至hashtable中</span><br><span class="line">        <span class="comment">/* Creating the timeout entry */</span></span><br><span class="line">        timeout_entry-&gt;command = timeout_args;</span><br><span class="line">        timeout_entry-&gt;time_of_addition = curr_time;</span><br><span class="line">        timeout_entry-&gt;time_to_block = timeout_value;</span><br><span class="line">        <span class="comment">/* Adding command to the timeout list */</span></span><br><span class="line">        <span class="keyword">if</span>(!OSList_AddData(timeout_list, timeout_entry))</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="0x05-分层的模块结构"><a href="#0x05-分层的模块结构" class="headerlink" title="0x05 分层的模块结构"></a>0x05 分层的模块结构</h2><p>Ps:下面出现的模块指函数或者子功能；而功能模块指实现的特定功能的程序</p>
+<ul>
+<li><p>初始化阶段的多个功能都封装成公共模块、便于其他功能模块进行调用</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">goDaemon: 开启demo模式</span><br><span class="line">verbose： 日志记录</span><br><span class="line">StartSIG2： 注册信号事件</span><br><span class="line">...</span><br></pre></td></tr></table></figure></li>
+<li><p>该功能模块中也封装了一些内部模块，而这些内部模块的实现还是依靠公共模块实现</p>
+<p>内部ExecdConfig模块中：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">OS_ReadXML: 解析xml配置文件</span><br><span class="line">OS_GetOneContentforElement：获取特定节点的内容</span><br></pre></td></tr></table></figure>
+
+<p>外部StartMQ模块中：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">OS_BindUnixDomain: 来创建和绑定socket实现于外部通信的功能</span><br><span class="line"></span><br><span class="line">OS_BindUnixDomain本身由socket的原生函数构建的</span><br></pre></td></tr></table></figure></li>
+</ul>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%A8%A1%E5%9D%97%E7%9A%84%E5%8A%9F%E8%83%BD"><span class="toc-number">2.</span> <span class="toc-text">0x01 模块的功能</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-%E6%A8%A1%E5%9D%97%E6%80%BB%E8%A7%88"><span class="toc-number">3.</span> <span class="toc-text">0x02 模块总览</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E6%A8%A1%E5%9D%97%E7%9A%84%E4%B8%BB%E8%A6%81%E6%A1%86%E6%9E%B6"><span class="toc-number">4.</span> <span class="toc-text">0x03 模块的主要框架</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%A8%A1%E5%9D%97%E4%BB%A3%E7%A0%81%E4%B8%AD%E7%9A%84%E5%85%B3%E9%94%AE%E7%82%B9"><span class="toc-number">5.</span> <span class="toc-text">0x04 模块代码中的关键点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E5%88%86%E5%B1%82%E7%9A%84%E6%A8%A1%E5%9D%97%E7%BB%93%E6%9E%84"><span class="toc-number">6.</span> <span class="toc-text">0x05 分层的模块结构</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/07/26/ossec-execd-analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/07/26/ossec-execd-analysis/&text=OSSEC execd功能模块分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/07/26/ossec-execd-analysis/&is_video=false&description=OSSEC execd功能模块分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC execd功能模块分析&body=Check out this article: http://example.com/2019/07/26/ossec-execd-analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/07/26/ossec-execd-analysis/&title=OSSEC execd功能模块分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/07/26/ossec-execd-analysis/&name=OSSEC execd功能模块分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/07/26/ossec-execd-analysis/&t=OSSEC execd功能模块分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

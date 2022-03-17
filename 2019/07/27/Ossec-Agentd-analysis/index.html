@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 模块功能描述：client使用keystore中存储的key加解密与server的通信数据；从Server接收相关的控制消息(Restart syscheck、active response、文件更新)；如果为active response转发到&#x2F;queue&#x2F;alerts&#x2F;execq队列由execd模块进行命令执行；从&#x2F;queue&#x2F;ossec&#x2F;queue接收其他模块(monitory、s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OSSEC agentd模块分析">
+<meta property="og:url" content="http://example.com/2019/07/27/Ossec-Agentd-analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 模块功能描述：client使用keystore中存储的key加解密与server的通信数据；从Server接收相关的控制消息(Restart syscheck、active response、文件更新)；如果为active response转发到&#x2F;queue&#x2F;alerts&#x2F;execq队列由execd模块进行命令执行；从&#x2F;queue&#x2F;ossec&#x2F;queue接收其他模块(monitory、s">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2019/07/27/Ossec-Agentd-analysis/ossec-agentd_1_1.png">
+<meta property="article:published_time" content="2019-07-26T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.070Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2019/07/27/Ossec-Agentd-analysis/ossec-agentd_1_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>OSSEC agentd模块分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2019/12/10/simple-web-server/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2019/07/26/ossec-execd-analysis/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/07/27/Ossec-Agentd-analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&text=OSSEC agentd模块分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&is_video=false&description=OSSEC agentd模块分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC agentd模块分析&body=Check out this article: http://example.com/2019/07/27/Ossec-Agentd-analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&name=OSSEC agentd模块分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/07/27/Ossec-Agentd-analysis/&t=OSSEC agentd模块分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x00-%E6%A8%A1%E5%9D%97%E5%8A%9F%E8%83%BD%E6%8F%8F%E8%BF%B0%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 模块功能描述：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x01-%E6%A8%A1%E5%9D%97%E6%B5%81%E7%A8%8B%E5%9B%BE%EF%BC%9A"><span class="toc-number">2.</span> <span class="toc-text">0x01 模块流程图：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x02-%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">0x02 关键功能解析：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OS-ReadKeys%EF%BC%9A"><span class="toc-number"></span> <span class="toc-text">OS_ReadKeys：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#connect-server%EF%BC%9A"><span class="toc-number"></span> <span class="toc-text">connect_server：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#start-agent"><span class="toc-number"></span> <span class="toc-text">start_agent:</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#run-notify"><span class="toc-number"></span> <span class="toc-text">run_notify:</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BB%E5%BE%AA%E7%8E%AF"><span class="toc-number"></span> <span class="toc-text">主循环:</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x03-%E5%85%B3%E9%94%AE%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x03 关键数据结构：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x04-%E6%8E%A5%E5%8F%A3%E7%9A%84%E6%8A%BD%E8%B1%A1%E5%8C%96"><span class="toc-number">2.</span> <span class="toc-text">0x04 接口的抽象化</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        OSSEC agentd模块分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2019-07-26T16:00:00.000Z" itemprop="datePublished">2019-07-27</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/SourceCodeAnalysis/">SourceCodeAnalysis</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h3 id="0x00-模块功能描述："><a href="#0x00-模块功能描述：" class="headerlink" title="0x00 模块功能描述："></a>0x00 模块功能描述：</h3><p>client使用keystore中存储的key加解密与server的通信数据；从Server接收相关的控制消息(Restart syscheck、active response、文件更新)；如果为active response转发到/queue/alerts/execq队列由execd模块进行命令执行；从/queue/ossec/queue接收其他模块(monitory、secure、syslog、syslogtcp)写入的消息并转发至Server端</p>
+<h3 id="0x01-模块流程图："><a href="#0x01-模块流程图：" class="headerlink" title="0x01 模块流程图："></a>0x01 模块流程图：</h3><img src="/2019/07/27/Ossec-Agentd-analysis/ossec-agentd_1_1.png" class="">
+
+<h3 id="0x02-关键功能解析："><a href="#0x02-关键功能解析：" class="headerlink" title="0x02 关键功能解析："></a>0x02 关键功能解析：</h3><h2 id="OS-ReadKeys："><a href="#OS-ReadKeys：" class="headerlink" title="OS_ReadKeys："></a>OS_ReadKeys：</h2><p>通过client.key(一般只存在一行)初始化结构体keystore, 主要初始化key用于通信的加解密。</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"># 格式：</span><br><span class="line"><span class="number">002</span> v1 <span class="number">192.168</span><span class="number">.32</span><span class="number">.165</span> aa90159807cd317c21f8e17ba7b1d5eb4c338036d8fe7833bff11a69a4b32654</span><br><span class="line"><span class="title function_">while</span><span class="params">(fgets(buffer, OS_BUFFER_SIZE, fp) != <span class="literal">NULL</span>)</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span>((buffer[<span class="number">0</span>] == <span class="string">&#x27;#&#x27;</span>) || (buffer[<span class="number">0</span>] == <span class="string">&#x27; &#x27;</span>))</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Getting ID */</span></span><br><span class="line">        valid_str = buffer;</span><br><span class="line">        tmp_str = <span class="built_in">strchr</span>(buffer, <span class="string">&#x27; &#x27;</span>);</span><br><span class="line">        <span class="built_in">strncpy</span>(id, valid_str, KEYSIZE <span class="number">-1</span>);</span><br><span class="line">				...</span><br><span class="line">        <span class="comment">/* Getting name */</span></span><br><span class="line">        valid_str = tmp_str;</span><br><span class="line">        tmp_str = <span class="built_in">strchr</span>(tmp_str, <span class="string">&#x27; &#x27;</span>);</span><br><span class="line">        <span class="built_in">strncpy</span>(name, valid_str, KEYSIZE <span class="number">-1</span>);</span><br><span class="line">				...</span><br><span class="line">        <span class="comment">/* Getting ip address */</span></span><br><span class="line">        valid_str = tmp_str;</span><br><span class="line">        tmp_str = <span class="built_in">strchr</span>(tmp_str, <span class="string">&#x27; &#x27;</span>);</span><br><span class="line">        <span class="built_in">strncpy</span>(ip, valid_str, KEYSIZE <span class="number">-1</span>);</span><br><span class="line">				...</span><br><span class="line">        <span class="comment">/* Getting key */</span></span><br><span class="line">        valid_str = tmp_str;</span><br><span class="line">        tmp_str = <span class="built_in">strchr</span>(tmp_str, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line">        <span class="built_in">strncpy</span>(key, valid_str, KEYSIZE <span class="number">-1</span>);</span><br><span class="line">				...</span><br><span class="line">        <span class="comment">/* Generating the key hash */</span></span><br><span class="line">        __chash(keys, id, name, ip, key);</span><br><span class="line">		&#125;</span><br></pre></td></tr></table></figure>
+
+<p>__chash: 主要功能根据name、id、key生成最终可以用来进行通信的加密key(只会存在内存中)</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  OSHash_Add(keys-&gt;keyhash_id,				# 通过hashtable保存id与keyentries映射的关系</span><br><span class="line">             keys-&gt;keyentries[keys-&gt;keysize]-&gt;id,</span><br><span class="line">             keys-&gt;keyentries[keys-&gt;keysize]);</span><br><span class="line">  ...</span><br><span class="line">  OSHash_Add(keys-&gt;keyhash_ip,				<span class="meta"># hashtable保存ip与keyentries映射的关系</span></span><br><span class="line">             keys-&gt;keyentries[keys-&gt;keysize]-&gt;ip-&gt;ip,</span><br><span class="line">             keys-&gt;keyentries[keys-&gt;keysize]);    </span><br><span class="line">  ...</span><br><span class="line"><span class="comment">/* MD5 from name, id and key */</span></span><br><span class="line">OS_MD5_Str(name, filesum1);	</span><br><span class="line">OS_MD5_Str(id,  filesum2);</span><br><span class="line"><span class="comment">/* Generating new filesum1 */</span></span><br><span class="line"><span class="built_in">snprintf</span>(_finalstr, <span class="keyword">sizeof</span>(_finalstr)<span class="number">-1</span>, <span class="string">&quot;%s%s&quot;</span>, filesum1, filesum2);	</span><br><span class="line">  <span class="comment">/* Using just half of the first md5 (name/id) */</span></span><br><span class="line">  OS_MD5_Str(_finalstr, filesum1);</span><br><span class="line">  <span class="comment">/* Second md is just the key */</span></span><br><span class="line">  OS_MD5_Str(key, filesum2);	</span><br><span class="line"><span class="comment">/* Generating final key */</span></span><br><span class="line"><span class="built_in">memset</span>(_finalstr,<span class="string">&#x27;\0&#x27;</span>, <span class="keyword">sizeof</span>(_finalstr));</span><br><span class="line"><span class="built_in">snprintf</span>(_finalstr, <span class="number">49</span>, <span class="string">&quot;%s%s&quot;</span>, filesum2, filesum1);</span><br><span class="line">  <span class="comment">/* Final key is 48 * 4 = 192bits */</span></span><br><span class="line">  os_strdup(_finalstr, keys-&gt;keyentries[keys-&gt;keysize]-&gt;key);</span><br></pre></td></tr></table></figure>
+
+<h2 id="connect-server："><a href="#connect-server：" class="headerlink" title="connect_server："></a>connect_server：</h2><p>遍历agt-&gt;rip中保存的服务器ip，测试与服务器的网络是否联通；成功连接则保留连接的socket信息到agt-&gt;sock</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>(agt-&gt;rip[rc])</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* Checking if we have a hostname. */</span></span><br><span class="line">    tmp_str = <span class="built_in">strchr</span>(agt-&gt;rip[rc], <span class="string">&#x27;/&#x27;</span>);</span><br><span class="line">    <span class="keyword">if</span>(tmp_str)</span><br><span class="line">    &#123;</span><br><span class="line">        f_ip = OS_GetHost(agt-&gt;rip[rc], <span class="number">5</span>);</span><br><span class="line">		...</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* IPv6 address: */</span></span><br><span class="line">    <span class="keyword">if</span>(<span class="built_in">strchr</span>(tmp_str,<span class="string">&#x27;:&#x27;</span>) != <span class="literal">NULL</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        verbose(<span class="string">&quot;%s: INFO: Using IPv6 for: %s .&quot;</span>, ARGV0, tmp_str);</span><br><span class="line">        agt-&gt;sock = OS_ConnectUDP(agt-&gt;port, tmp_str, <span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">        verbose(<span class="string">&quot;%s: INFO: Using IPv4 for: %s .&quot;</span>, ARGV0, tmp_str);</span><br><span class="line">        agt-&gt;sock = OS_ConnectUDP(agt-&gt;port, tmp_str, <span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span>(agt-&gt;sock &lt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      ...</span><br><span class="line">      merror(<span class="string">&quot;%s: ERROR: Unable to connect to any server.&quot;</span>,ARGV0);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;		# 说明服务器连接成功</span><br><span class="line">        agt-&gt;rip_id = rc;</span><br><span class="line">        <span class="keyword">return</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="start-agent"><a href="#start-agent" class="headerlink" title="start_agent:"></a>start_agent:</h2><p>发送hello信息至服务器，接收服务返回的消息进行解密并校验消息完整性，判断是否为ack信息，如果失败一直尝试</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Sending start message and waiting for the ack */</span></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      	# 消息为：<span class="string">&quot;#!-agent startup&quot;</span></span><br><span class="line">        <span class="comment">/* Sending start up message */</span></span><br><span class="line">        send_msg(<span class="number">0</span>, msg);</span><br><span class="line">        <span class="comment">/* Read until our reply comes back */</span></span><br><span class="line">        <span class="keyword">while</span>(((recv_b = recv(agt-&gt;sock, buffer, OS_MAXSTR,</span><br><span class="line">                              MSG_DONTWAIT)) &gt;= <span class="number">0</span>) || (attempts &lt;= <span class="number">5</span>))</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span>(recv_b &lt;= <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">								# 尝试重新发送信息</span><br><span class="line">                send_msg(<span class="number">0</span>, msg);</span><br><span class="line">            &#125;</span><br><span class="line">            # 使用keys-&gt;keyentries[<span class="number">0</span>]-&gt;key进行数据的解密</span><br><span class="line">            tmp_msg = ReadSecMSG(&amp;keys, buffer, cleartext, <span class="number">0</span>, recv_b <span class="number">-1</span>);</span><br><span class="line">            # 检查解密出来的消息头是否合格</span><br><span class="line">            # <span class="string">&quot;#!-&quot;</span></span><br><span class="line">            <span class="keyword">if</span>(IsValidHeader(tmp_msg))</span><br><span class="line">            &#123;</span><br><span class="line">                # 确认为ack信息</span><br><span class="line">                # <span class="string">&quot;agent ack&quot;</span></span><br><span class="line">                <span class="keyword">if</span>(<span class="built_in">strcmp</span>(tmp_msg, HC_ACK) == <span class="number">0</span>)</span><br><span class="line">                &#123;</span><br><span class="line">                  	# 如果为初次连接则发送相关的信息</span><br><span class="line">                    <span class="keyword">if</span>(is_startup)</span><br><span class="line">                    &#123;</span><br><span class="line">                        <span class="comment">/* Send log message about start up */</span></span><br><span class="line">                        <span class="built_in">snprintf</span>(msg, OS_MAXSTR, OS_AG_STARTED,</span><br><span class="line">                                keys.keyentries[<span class="number">0</span>]-&gt;name,</span><br><span class="line">                                keys.keyentries[<span class="number">0</span>]-&gt;ip-&gt;ip);</span><br><span class="line">                        <span class="built_in">snprintf</span>(fmsg, OS_MAXSTR, <span class="string">&quot;%c:%s:%s&quot;</span>, LOCALFILE_MQ,</span><br><span class="line">                                                  <span class="string">&quot;ossec&quot;</span>, msg);</span><br><span class="line">                        send_msg(<span class="number">0</span>, fmsg);</span><br><span class="line">                    &#125;</span><br><span class="line">                    <span class="keyword">return</span>;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">/* If we have more than one server, try all. */</span></span><br><span class="line">        <span class="keyword">if</span>(agt-&gt;rip[<span class="number">1</span>])</span><br><span class="line">        &#123;</span><br><span class="line">						# 如果还有其他的Server都进行连接确认</span><br><span class="line">            connect_server(agt-&gt;rip_id +<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;		# 如果尝试多次失败，则检测与Server的网络是否连通</span><br><span class="line">            connect_server(<span class="number">0</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>ReadSecMSG：使用keys中保存的key解密Server端发送过来的消息。</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">  <span class="comment">/* Decrypting message */</span></span><br><span class="line">  <span class="keyword">if</span>(!OS_BF_Str(buffer, cleartext, keys-&gt;keyentries[id]-&gt;key,</span><br><span class="line">                buffer_size, OS_DECRYPT))</span><br><span class="line">...</span><br><span class="line"><span class="keyword">else</span> <span class="keyword">if</span>(cleartext[<span class="number">0</span>] == <span class="string">&#x27;!&#x27;</span>)</span><br><span class="line">  &#123;</span><br><span class="line">		...</span><br><span class="line">      <span class="comment">/* 解压缩 */</span></span><br><span class="line">      cmp_size = os_zlib_uncompress(cleartext, buffer, buffer_size, OS_MAXSTR);</span><br><span class="line">      <span class="comment">/* 检测数据的完整性  */</span></span><br><span class="line">      f_msg = CheckSum(buffer);</span><br><span class="line">  &#125;</span><br><span class="line">  # 旧的格式，不需要解压缩</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span>(cleartext[<span class="number">0</span>] == <span class="string">&#x27;:&#x27;</span>)</span><br><span class="line">  &#123;</span><br><span class="line">      <span class="comment">/* 验证数据完整性  */</span></span><br><span class="line">      f_msg = CheckSum(cleartext);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>OS_BF_Str: 封装的加解密函数,使用的算法为DES-CBC算法</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">char</span> cbc_iv [<span class="number">8</span>]=&#123;<span class="number">0xfe</span>,<span class="number">0xdc</span>,<span class="number">0xba</span>,<span class="number">0x98</span>,<span class="number">0x76</span>,<span class="number">0x54</span>,<span class="number">0x32</span>,<span class="number">0x10</span>&#125;;</span><br><span class="line"><span class="built_in">memcpy</span>(iv,cbc_iv,<span class="keyword">sizeof</span>(iv));</span><br><span class="line">BF_set_key(&amp;key, <span class="built_in">strlen</span>(charkey), (uchar *)charkey);</span><br><span class="line">BF_cbc_encrypt((uchar *)input, (uchar *)output, size,</span><br><span class="line">        &amp;key, iv, action);</span><br></pre></td></tr></table></figure>
+
+<h2 id="run-notify"><a href="#run-notify" class="headerlink" title="run_notify:"></a>run_notify:</h2><p>将agent的一些信息发送给Server</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">uname = getuname();</span><br><span class="line"><span class="comment">/* get shared files */</span></span><br><span class="line">shared_files = getsharedfiles();</span><br><span class="line"><span class="comment">/* creating message */</span></span><br><span class="line">rand_keepalive_str2(keep_alive_random, <span class="number">700</span>);</span><br><span class="line"><span class="built_in">snprintf</span>(tmp_msg, OS_SIZE_1024, <span class="string">&quot;#!-%s / %s\n%s\n%s&quot;</span>,</span><br><span class="line">             uname, md5sum, shared_files, keep_alive_random);</span><br><span class="line">..</span><br><span class="line"><span class="comment">/* Sending status message */</span></span><br><span class="line">send_msg(<span class="number">0</span>, tmp_msg);</span><br></pre></td></tr></table></figure>
+
+<h2 id="主循环"><a href="#主循环" class="headerlink" title="主循环:"></a>主循环:</h2><p>使用select检测Server端发送的消息以及本地队列中接收的消息(Monitord、syslog、syslogtcp、secure等模块)</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* Monitoring all available sockets from here */</span></span><br><span class="line">    <span class="comment">/* Wait with a timeout for any descriptor */</span></span><br><span class="line">    rc = select(maxfd, &amp;fdset, <span class="literal">NULL</span>, <span class="literal">NULL</span>, &amp;fdtimeout);</span><br><span class="line">    <span class="comment">/* For the receiver */</span></span><br><span class="line">    <span class="keyword">if</span>(FD_ISSET(agt-&gt;sock, &amp;fdset))</span><br><span class="line">    &#123;</span><br><span class="line">        receive_msg();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* For the forwarder */</span></span><br><span class="line">    <span class="keyword">if</span>(FD_ISSET(agt-&gt;m_queue, &amp;fdset))</span><br><span class="line">    &#123;</span><br><span class="line">        EventForward();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>receive_msg: 用于接收Server端发送过来的消息，这里分别处理了active response、restart syscheck、ACK、文件更新、文件关闭等信息</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>((recv_b = recv(agt-&gt;sock, buffer, OS_SIZE_1024, MSG_DONTWAIT)) &gt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        tmp_msg = ReadSecMSG(&amp;keys, buffer, cleartext, <span class="number">0</span>, recv_b <span class="number">-1</span>);</span><br><span class="line">        <span class="comment">/* Check for commands */</span></span><br><span class="line">        <span class="keyword">if</span>(IsValidHeader(tmp_msg))</span><br><span class="line">        &#123;</span><br><span class="line">						...</span><br><span class="line">            <span class="comment">/* If it is an active response message */</span></span><br><span class="line">            <span class="keyword">if</span>(<span class="built_in">strncmp</span>(tmp_msg, EXECD_HEADER, <span class="built_in">strlen</span>(EXECD_HEADER)) == <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="keyword">if</span>(agt-&gt;execdq &gt;= <span class="number">0</span>)</span><br><span class="line">                    <span class="keyword">if</span>(OS_SendUnix(agt-&gt;execdq, tmp_msg, <span class="number">0</span>) &lt; <span class="number">0</span>)</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* Restart syscheck. */</span></span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(tmp_msg, HC_SK_RESTART) == <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">                os_set_restart_syscheck();</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* Ack from server */</span></span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strcmp</span>(tmp_msg, HC_ACK) == <span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* File update message */</span></span><br><span class="line">            <span class="keyword">if</span>(<span class="built_in">strncmp</span>(tmp_msg, FILE_UPDATE_HEADER,</span><br><span class="line">                       <span class="built_in">strlen</span>(FILE_UPDATE_HEADER)) == <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">							...</span><br><span class="line">            &#125;</span><br><span class="line">						# 文件关闭</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span>(<span class="built_in">strncmp</span>(tmp_msg, FILE_CLOSE_HEADER,</span><br><span class="line">                        <span class="built_in">strlen</span>(FILE_CLOSE_HEADER)) == <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">							...</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span>		# 无效的信息</span><br><span class="line">            &#123;</span><br><span class="line">                merror(<span class="string">&quot;%s: WARN: Unknown message received from server.&quot;</span>, ARGV0);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>EventForward：将本地队列/queue/ossec/queue中接收到的消息转发至Server</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>((recv_b = recv(agt-&gt;m_queue, msg, OS_MAXSTR, MSG_DONTWAIT)) &gt; <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    send_msg(<span class="number">0</span>, msg);</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="0x03-关键数据结构："><a href="#0x03-关键数据结构：" class="headerlink" title="0x03 关键数据结构："></a>0x03 关键数据结构：</h3><ul>
+<li><p>agent数据结构：对应与该模块的功能，主要包含主消息队列、Server IP、配置文件名称、Server socket、Execd执行队列</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Configuration structure */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">agent</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="type">int</span> port;</span><br><span class="line">    <span class="type">int</span> m_queue;	<span class="comment">/* 主消息队列 */</span></span><br><span class="line">    <span class="type">int</span> sock;		<span class="comment">/* 与Server的socket */</span></span><br><span class="line">    <span class="type">int</span> execdq;		<span class="comment">/* 本地Active response执行队列 */</span></span><br><span class="line">    <span class="type">int</span> rip_id;</span><br><span class="line">    <span class="type">char</span> *lip;</span><br><span class="line">    <span class="type">char</span> **rip; <span class="comment">/* remote (server) ip */</span></span><br><span class="line">    <span class="type">int</span> notify_time;</span><br><span class="line">    <span class="type">int</span> max_time_reconnect_try;</span><br><span class="line">    <span class="type">char</span> *profile;		<span class="comment">/* 对应的配置文件名称 */</span></span><br><span class="line">&#125;agent;</span><br></pre></td></tr></table></figure></li>
+<li><p>keystore及keyentry结构体：保存client与Server之间的认证key；用于通信信息的加解密</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Unique key for each agent. */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">keyentry</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> rcvd;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> local;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> keyid;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> global;</span><br><span class="line">    <span class="type">char</span> *id;</span><br><span class="line">    <span class="type">char</span> *key;		<span class="comment">/* 通过id、name、client.keys中保存的key，加密生成 */</span></span><br><span class="line">    <span class="type">char</span> *name;</span><br><span class="line">    os_ip *ip;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">peer_info</span>;</span></span><br><span class="line">    FILE *fp;</span><br><span class="line">&#125;keyentry;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Key storage. */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">keystore</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="comment">/* Array with all the keys */</span></span><br><span class="line">    keyentry **keyentries;</span><br><span class="line">    <span class="comment">/* Hashes, based on the id/ip to lookup the keys. */</span></span><br><span class="line">    <span class="type">void</span> *keyhash_id;		<span class="comment">/* 通过hashtable来保存对应的keyentry地址 */</span></span><br><span class="line">    <span class="type">void</span> *keyhash_ip;</span><br><span class="line">    <span class="comment">/* Total key size */</span></span><br><span class="line">    <span class="type">int</span> keysize;</span><br><span class="line">    <span class="comment">/* Key file stat */</span></span><br><span class="line">    <span class="type">int</span> file_change;</span><br><span class="line">&#125;keystore;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="0x04-接口的抽象化"><a href="#0x04-接口的抽象化" class="headerlink" title="0x04 接口的抽象化"></a>0x04 接口的抽象化</h3><p>ClientConf -&gt; ReadConfig -&gt; read_main_elements -&gt; Read_Client</p>
+<p>针对配置文件的加载，通过ReadConfig的主接口，首先解析配置文件的xml数据结构，再针对每个节点判定模块，再分发到不同的配置文件解析并初始化对应的数据结构。</p>
+<p>ReadSecMSG -&gt; OS_BF_Str -&gt; BF_cbc_encrypt</p>
+<p>通过OS_BF_Str接口传入对应的key和密文，可以进行数据的加解密</p>
+<p>Send_msg -&gt; CreateSecMSG &amp; OS_SendUDPbySize</p>
+<p>使用CreateSecMSG针对原数据进行压缩和加密，通过OS_SendUDPbySize发送UDP请求信息</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x00-%E6%A8%A1%E5%9D%97%E5%8A%9F%E8%83%BD%E6%8F%8F%E8%BF%B0%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 模块功能描述：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x01-%E6%A8%A1%E5%9D%97%E6%B5%81%E7%A8%8B%E5%9B%BE%EF%BC%9A"><span class="toc-number">2.</span> <span class="toc-text">0x01 模块流程图：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x02-%E5%85%B3%E9%94%AE%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">0x02 关键功能解析：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OS-ReadKeys%EF%BC%9A"><span class="toc-number"></span> <span class="toc-text">OS_ReadKeys：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#connect-server%EF%BC%9A"><span class="toc-number"></span> <span class="toc-text">connect_server：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#start-agent"><span class="toc-number"></span> <span class="toc-text">start_agent:</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#run-notify"><span class="toc-number"></span> <span class="toc-text">run_notify:</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BB%E5%BE%AA%E7%8E%AF"><span class="toc-number"></span> <span class="toc-text">主循环:</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#0x03-%E5%85%B3%E9%94%AE%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x03 关键数据结构：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#0x04-%E6%8E%A5%E5%8F%A3%E7%9A%84%E6%8A%BD%E8%B1%A1%E5%8C%96"><span class="toc-number">2.</span> <span class="toc-text">0x04 接口的抽象化</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/07/27/Ossec-Agentd-analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&text=OSSEC agentd模块分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&is_video=false&description=OSSEC agentd模块分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=OSSEC agentd模块分析&body=Check out this article: http://example.com/2019/07/27/Ossec-Agentd-analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&title=OSSEC agentd模块分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/07/27/Ossec-Agentd-analysis/&name=OSSEC agentd模块分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/07/27/Ossec-Agentd-analysis/&t=OSSEC agentd模块分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

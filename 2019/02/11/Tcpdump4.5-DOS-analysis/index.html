@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="环境：pwngdb 软件地址： https:&#x2F;&#x2F;www.exploit-db.com&#x2F;apps&#x2F;973a2513d0076e34aa9da7e15ed98e1b-tcpdump-4.5.1.tar.gz poc地址： https:&#x2F;&#x2F;www.exploit-db.com&#x2F;exploits&#x2F;39875 漏洞分析：编译结束后，运行poc生成payload样本文件，运行gdb: gdb --args &#x2F;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[pwn] Tcpdump4.5.1 Dos Vul analysis">
+<meta property="og:url" content="http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="环境：pwngdb 软件地址： https:&#x2F;&#x2F;www.exploit-db.com&#x2F;apps&#x2F;973a2513d0076e34aa9da7e15ed98e1b-tcpdump-4.5.1.tar.gz poc地址： https:&#x2F;&#x2F;www.exploit-db.com&#x2F;exploits&#x2F;39875 漏洞分析：编译结束后，运行poc生成payload样本文件，运行gdb: gdb --args &#x2F;">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-02-10T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.075Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>[pwn] Tcpdump4.5.1 Dos Vul analysis</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2019/07/25/fastjson-1.2.47-rce/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2018/09/17/ecshop2.x-rce/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&text=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&is_video=false&description=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[pwn] Tcpdump4.5.1 Dos Vul analysis&body=Check out this article: http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&name=[pwn] Tcpdump4.5.1 Dos Vul analysis&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&t=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">环境：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%EF%BC%9A"><span class="toc-number">2.</span> <span class="toc-text">漏洞分析：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">总结：</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        [pwn] Tcpdump4.5.1 Dos Vul analysis
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2019-02-10T16:00:00.000Z" itemprop="datePublished">2019-02-11</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/BinarySecurity/">BinarySecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="环境："><a href="#环境：" class="headerlink" title="环境："></a>环境：</h2><p>pwngdb</p>
+<p>软件地址： <a target="_blank" rel="noopener" href="https://www.exploit-db.com/apps/973a2513d0076e34aa9da7e15ed98e1b-tcpdump-4.5.1.tar.gz">https://www.exploit-db.com/apps/973a2513d0076e34aa9da7e15ed98e1b-tcpdump-4.5.1.tar.gz</a></p>
+<p>poc地址： <a target="_blank" rel="noopener" href="https://www.exploit-db.com/exploits/39875">https://www.exploit-db.com/exploits/39875</a></p>
+<h2 id="漏洞分析："><a href="#漏洞分析：" class="headerlink" title="漏洞分析："></a>漏洞分析：</h2><p>编译结束后，运行<code>poc</code>生成<code>payload</code>样本文件，运行<code>gdb</code>:</p>
+<pre><code>gdb --args /usr/local/sbin/tcpdump -r crash
+</code></pre>
+<p>执行后可以查看到异常退出，获取调用堆栈：</p>
+<pre><code>► f 0   419769 hex_and_ascii_print_with_offset+105
+  f 1   419916 hex_and_ascii_print+22
+  f 2   46c543 ndo_default_print+35
+  f 3   4176a8 ieee802_15_4_if_print+648
+  f 4   46cc1c print_packet+92
+  f 5 b7f85bd2
+  f 6 b7f75d63 pcap_loop+51
+  f 7   4107ed main+4253
+  f 8 b7da5b41 __libc_start_main+241
+Program received signal SIGSEGV (fault address 0x5d2000)
+</code></pre>
+<p>异常的代码位置：</p>
+<pre><code>In file: /root/Binary/tcpdump-4.5.1-dos/tcpdump-4.5.1/print-ascii.c
+   86     nshorts = length / sizeof(u_short);
+   87     i = 0;
+   88     hsp = hexstuff; asp = asciistuff;
+   89     while (--nshorts &gt;= 0) &#123;
+   90         s1 = *cp++;
+ ► 91         s2 = *cp++;
+</code></pre>
+<p>查看frame的参数：</p>
+<pre><code>pwndbg&gt; info args
+ident = 0x48abf3 &quot;\n\t&quot;
+cp = 0x5d2001 &lt;error: Cannot access memory at address 0x5d2001&gt;
+length = 4294967283
+oset = 137936
+</code></pre>
+<p><code>cp</code>为不可访问的地址，而<code>length</code>(接近于u_int的最大值)</p>
+<p>代码逻辑通过<code>nshorts</code>来读取<code>cp</code>地址中的内容。而<code>nshorts</code>的值由传入函数的<code>length</code>来影响。</p>
+<p>接着依次回溯函数，使用<code>frame n</code>来切换，找到<code>length</code>产生的地方：</p>
+<pre><code>pwndbg&gt; f 1
+#1  0x00419916 in hex_and_ascii_print (ident=0x48abf3 &quot;\n\t&quot;, cp=0x5b0525 &quot;&quot;, length=4294967283) at ./print-ascii.c:127
+127        hex_and_ascii_print_with_offset(ident, cp, length, 0);
+pwndbg&gt; list
+122
+123    void
+124    hex_and_ascii_print(register const char *ident, register const u_char *cp,
+125        register u_int length)
+126    &#123;
+127        hex_and_ascii_print_with_offset(ident, cp, length, 0);
+128    &#125;
+</code></pre>
+<p>通过几次回溯，发现关键函数：</p>
+<pre><code>pwndbg&gt; f 3
+#3  0x004176a8 in ieee802_15_4_if_print (ndo=0x5ae200 &lt;Gndo&gt;, h=0xbfffe10c, p=0x5b0525 &quot;&quot;) at ./print-802_15_4.c:180
+180            (ndo-&gt;ndo_default_print)(ndo, p, caplen);
+pwndbg&gt; list
+175
+176            caplen -= hdrlen;
+177        &#125;
+178
+179        if (!suppress_default_print)
+180            (ndo-&gt;ndo_default_print)(ndo, p, caplen);
+181
+182        return 0;
+183    &#125;
+</code></pre>
+<p>查看源代码，配合<code>b filename:linenumber</code>来动态调试，梳理该函数的关键代码逻辑：</p>
+<pre><code>ieee802_15_4_if_print(struct netdissect_options *ndo,
+                      const struct pcap_pkthdr *h, const u_char *p)
+&#123;
+    u_int caplen = h-&gt;caplen;  # 1
+  ...
+    fc = EXTRACT_LE_16BITS(p);
+    hdrlen = extract_header_length(fc);  # 2
+
+    seq = EXTRACT_LE_8BITS(p + 2);
+
+    p += 3;
+    caplen -= 3; # 3
+  ...
+    if (!vflag) &#123;
+        p+= hdrlen;
+        caplen -= hdrlen; # 4
+  ...
+  if (!suppress_default_print)
+  (ndo-&gt;ndo_default_print)(ndo, p, caplen); # 5
+</code></pre>
+<p><code>#5</code>的位置为触发异常的函数。接着分析<code>caplen</code>的值是如何生成的，首先通过<code>#1</code>获取原始的<code>caplen</code>(动态调试为8)，在<code>#2</code>处获取<code>hdrlen</code>(动态调试为18)，<code>#3</code>处会针对<code>caplen-3</code>，通过判断<code>vflag</code>进入#4的处理(动态调试发现此处生成的caplen发生了溢出: 5-18=4294967283)，接着最后传入<code>#5</code>触发了漏洞。</p>
+<p>通过搜索了解到<code>pcap_pkthdr</code>结构中的<code>caplen</code>在对应pcap文件中的位置：</p>
+<pre><code>00000000: d4c3 b2a1 0200 0400 0000 00f5 ff00 0000  ................
+00000010: 4900 0000 e600 0000 0080 0000 0000 0000  I...............
+00000020: 0800 0000 003c 9c37 40ff 0006 a072 7f00  .....&lt;.7@....r..
+00000030: 0001 7f00 00ec 0001 e01a 0017 672b 2b2b  ............g+++
+00000040: 2b2b 2b2b 85c9 0300 0000 10a0 2680 1827  ++++........&amp;..&#39;
+00000050: 7866 6524 0001 0000 400c 0402 080a 272c  xfe$....@.....&#39;,
+00000060: 2027 0000 0000 0000 0000 0103 0304        &#39;............
+</code></pre>
+<p>caplen匹配的位置为<code>0x24-0x27</code>的内容:<code>0x379c3c00</code>.在gdb中从传入的开始地址(参数p)查看分配的内存范围有多少：</p>
+<pre><code>pwndbg&gt; x/100000x 0x5b0525
+...
+0x5d1fe5:    0x00000000    0x00000000    0x00000000    0x00000000
+0x5d1ff5:    0x00000000    0x00000000    Cannot access memory at address 0x5d2000
+</code></pre>
+<p><code>100000</code>换算十六进制为<code>0x186a0</code>，而循环的大小的<code>nshorts</code>为<code>0x7ffffff9</code>，发生了越界访问导致了异常。</p>
+<h2 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h2><p>由于传入的caplen没有进行控制，发生了uint溢出，导致越界访问产生漏洞。</p>
+<p>分析思路：</p>
+<ul>
+<li>通过bt来查看调用栈</li>
+<li>检查异常是由代码的那个部分造成</li>
+<li>回溯与异常有关的变量和参数</li>
+<li>代码分析和动态调试获取执行流程</li>
+<li>最终定位于输入相连的关键点</li>
+</ul>
+<p>KEEP Going!!! :P</p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">环境：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%EF%BC%9A"><span class="toc-number">2.</span> <span class="toc-text">漏洞分析：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">总结：</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&text=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&is_video=false&description=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=[pwn] Tcpdump4.5.1 Dos Vul analysis&body=Check out this article: http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&title=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&name=[pwn] Tcpdump4.5.1 Dos Vul analysis&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2019/02/11/Tcpdump4.5-DOS-analysis/&t=[pwn] Tcpdump4.5.1 Dos Vul analysis"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>

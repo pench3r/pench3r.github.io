@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x00 前言：OpenSSL的heartbeat模块中的dtls1_process_heartbeat存在问题，对应源码文件为ssl&#x2F;dl_both.c；通过控制心跳包中的长度字段，可以泄漏sslV3记录后的内存数据；对应漏洞编号CVE-2014-0160 0x01 漏洞成因直接来到关键漏洞函数：tls1_process_heartbeat(ssl&#x2F;t1_lib.c)和dtls1_process">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Heart Bleed漏洞分析">
+<meta property="og:url" content="http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="0x00 前言：OpenSSL的heartbeat模块中的dtls1_process_heartbeat存在问题，对应源码文件为ssl&#x2F;dl_both.c；通过控制心跳包中的长度字段，可以泄漏sslV3记录后的内存数据；对应漏洞编号CVE-2014-0160 0x01 漏洞成因直接来到关键漏洞函数：tls1_process_heartbeat(ssl&#x2F;t1_lib.c)和dtls1_process">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/heart_bleed_2_1.png">
+<meta property="article:published_time" content="2020-02-01T16:00:00.000Z">
+<meta property="article:modified_time" content="2022-03-17T05:58:50.032Z">
+<meta property="article:author" content="PENCH3R">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/heart_bleed_2_1.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>Heart Bleed漏洞分析</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.1"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2020/02/26/thinkphp6.0-create-file-vul/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2020/02/01/Apache-Shiro-1.2.4-rememberMe-deserial/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&text=Heart Bleed漏洞分析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&is_video=false&description=Heart Bleed漏洞分析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Heart Bleed漏洞分析&body=Check out this article: http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&name=Heart Bleed漏洞分析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&t=Heart Bleed漏洞分析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E6%88%90%E5%9B%A0"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞成因</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-SSL-TLS%E5%8D%8F%E8%AE%AE"><span class="toc-number">3.</span> <span class="toc-text">0x02 SSL&#x2F;TLS协议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E5%AE%9E%E8%B7%B5"><span class="toc-number">4.</span> <span class="toc-text">0x03 实践</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-number">5.</span> <span class="toc-text">0x04 漏洞修复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">0x05 总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        Heart Bleed漏洞分析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">PENCH3R</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2020-02-01T16:00:00.000Z" itemprop="datePublished">2020-02-02</time>
+        
+      
+    </div>
+
+
+      
+    <div class="article-category">
+        <i class="fas fa-archive"></i>
+        <a class="category-link" href="/categories/BinarySecurity/">BinarySecurity</a>
+    </div>
+
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="0x00-前言："><a href="#0x00-前言：" class="headerlink" title="0x00 前言："></a>0x00 前言：</h2><p>OpenSSL的heartbeat模块中的dtls1_process_heartbeat存在问题，对应源码文件为ssl/dl_both.c；通过控制心跳包中的长度字段，可以泄漏sslV3记录后的内存数据；对应漏洞编号CVE-2014-0160</p>
+<h2 id="0x01-漏洞成因"><a href="#0x01-漏洞成因" class="headerlink" title="0x01 漏洞成因"></a>0x01 漏洞成因</h2><p>直接来到关键漏洞函数：tls1_process_heartbeat(ssl/t1_lib.c)和dtls1_process_heartbeat(ssl/dl_both.c)</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span></span><br><span class="line"><span class="title function_">tls1_process_heartbeat</span><span class="params">(SSL *s)</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="type">unsigned</span> <span class="type">char</span> *p = &amp;s-&gt;s3-&gt;rrec.data[<span class="number">0</span>], *pl;</span><br><span class="line"><span class="type">unsigned</span> <span class="type">short</span> hbtype;</span><br><span class="line"><span class="type">unsigned</span> <span class="type">int</span> payload;</span><br><span class="line"><span class="type">unsigned</span> <span class="type">int</span> padding = <span class="number">16</span>; <span class="comment">/* Use minimum padding */</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* Read type and payload length first */</span></span><br><span class="line">hbtype = *p++;</span><br><span class="line">n2s(p, payload);		<span class="comment">// payload攻击者可控</span></span><br><span class="line">pl = p;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (s-&gt;msg_callback)</span><br><span class="line">	s-&gt;msg_callback(<span class="number">0</span>, s-&gt;version, TLS1_RT_HEARTBEAT,</span><br><span class="line">		&amp;s-&gt;s3-&gt;rrec.data[<span class="number">0</span>], s-&gt;s3-&gt;rrec.length,</span><br><span class="line">		s, s-&gt;msg_callback_arg);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (hbtype == TLS1_HB_REQUEST)</span><br><span class="line">	&#123;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">char</span> *buffer, *bp;</span><br><span class="line">	<span class="type">int</span> r;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Allocate memory for the response, size is 1 byte</span></span><br><span class="line"><span class="comment">	 * message type, plus 2 bytes payload length, plus</span></span><br><span class="line"><span class="comment">	 * payload, plus padding</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	buffer = OPENSSL_malloc(<span class="number">1</span> + <span class="number">2</span> + payload + padding);</span><br><span class="line">	bp = buffer;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Enter response type, length and copy payload */</span></span><br><span class="line">	*bp++ = TLS1_HB_RESPONSE;</span><br><span class="line">	s2n(payload, bp);</span><br><span class="line">	<span class="built_in">memcpy</span>(bp, pl, payload);		<span class="comment">// 未检查payload长度，造成越界读取内存</span></span><br><span class="line">	bp += payload;</span><br><span class="line">	<span class="comment">/* Random padding */</span></span><br><span class="line">	RAND_pseudo_bytes(bp, padding);</span><br><span class="line"></span><br><span class="line">	r = dtls1_write_bytes(s, TLS1_RT_HEARTBEAT, buffer, <span class="number">3</span> + payload + padding);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (r &gt;= <span class="number">0</span> &amp;&amp; s-&gt;msg_callback)</span><br><span class="line">		s-&gt;msg_callback(<span class="number">1</span>, s-&gt;version, TLS1_RT_HEARTBEAT,</span><br><span class="line">			buffer, <span class="number">3</span> + payload + padding,</span><br><span class="line">			s, s-&gt;msg_callback_arg);</span><br><span class="line"></span><br><span class="line">	OPENSSL_free(buffer);</span><br><span class="line">	...</span><br><span class="line"><span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以得到：</p>
+<ul>
+<li>在memcpy处使用的payload长度未进行检测，同时payload可以控制，导致了内存越界</li>
+<li>再通过dtls1_write_bytes将越界获取的信息进行回传</li>
+</ul>
+<p>关键数据结构：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">ssl_t</span> &#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">ssl3_state_st</span> *<span class="title">s3</span>;</span> <span class="comment">/* SSLv3 variables */</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">ssl3_state_st</span> &#123;</span></span><br><span class="line">	SSL3_RECORD rrec;	<span class="comment">/* each decoded record goes in here */</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">ssl3_record_st</span></span></span><br><span class="line"><span class="class">	&#123;</span></span><br><span class="line"><span class="comment">/*r */</span>	<span class="type">int</span> type;               <span class="comment">/* type of record */</span></span><br><span class="line"><span class="comment">/*rw*/</span>	<span class="type">unsigned</span> <span class="type">int</span> length;    <span class="comment">/* How many bytes available */</span></span><br><span class="line"><span class="comment">/*r */</span>	<span class="type">unsigned</span> <span class="type">int</span> off;       <span class="comment">/* read/write offset into &#x27;buf&#x27; */</span></span><br><span class="line"><span class="comment">/*rw*/</span>	<span class="type">unsigned</span> <span class="type">char</span> *data;    <span class="comment">/* pointer to the record data */</span></span><br><span class="line"><span class="comment">/*rw*/</span>	<span class="type">unsigned</span> <span class="type">char</span> *input;   <span class="comment">/* where the decode bytes are */</span></span><br><span class="line"><span class="comment">/*r */</span>	<span class="type">unsigned</span> <span class="type">char</span> *comp;    <span class="comment">/* only used with decompression - malloc()ed */</span></span><br><span class="line"><span class="comment">/*r */</span>  <span class="type">unsigned</span> <span class="type">long</span> epoch;    <span class="comment">/* epoch number, needed by DTLS1 */</span></span><br><span class="line"><span class="comment">/*r */</span>  <span class="type">unsigned</span> <span class="type">char</span> seq_num[<span class="number">8</span>]; <span class="comment">/* sequence number, needed by DTLS1 */</span></span><br><span class="line">	&#125; SSL3_RECORD;</span><br></pre></td></tr></table></figure>
+
+<p>tls对应的数据包格式如下：</p>
+<table>
+<thead>
+<tr>
+<th align="left">心跳包字段</th>
+<th align="left">长度</th>
+<th align="left">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">ContentType</td>
+<td align="left">1byte</td>
+<td align="left">心跳包类型，IANA组织把type编号定义为24（0x18）</td>
+</tr>
+<tr>
+<td align="left">ProtocolVersion</td>
+<td align="left">2bytes</td>
+<td align="left">TLS的版本号，目前主要包括含有心跳扩展的TLS版本：TLSv1.0，TLSv1.1，TLSv1.2</td>
+</tr>
+<tr>
+<td align="left">length</td>
+<td align="left">2bytes</td>
+<td align="left">HeartbeatMessage的长度</td>
+</tr>
+<tr>
+<td align="left">HeartbeatMessageType</td>
+<td align="left">1byte</td>
+<td align="left">Heartbeat类型 01表示heartbeat_request 02表示heartbeat_response</td>
+</tr>
+<tr>
+<td align="left">payload_length</td>
+<td align="left">2bytes</td>
+<td align="left">payload长度</td>
+</tr>
+<tr>
+<td align="left">payload</td>
+<td align="left">payload_length个bytes</td>
+<td align="left">payload的具体内容</td>
+</tr>
+<tr>
+<td align="left">padding</td>
+<td align="left">&gt;=16bytes</td>
+<td align="left">padding填充，最少为16个字节</td>
+</tr>
+</tbody></table>
+<p>直接引用数据包中的payload_length，并未检测数据的有效性：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">unsigned char *p = &amp;s-&gt;s3-&gt;rrec.data[0]  // 获取数据包中的数据</span><br><span class="line">/* Read type and payload length first */</span><br><span class="line">hbtype = *p++;</span><br><span class="line">n2s(p, payload);	// 通过p[0]和p[1]确定payload的大小</span><br></pre></td></tr></table></figure>
+
+<p>这里借助poc来更好的理解控制的数据：</p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="comment"># TLSv1.1</span></span><br><span class="line"><span class="comment"># 这段数据是再进行发送hello数据后再发送的</span></span><br><span class="line">hb2 = h2bin(<span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">18 			// ContentType</span></span><br><span class="line"><span class="string">03 02 	// ProtocolVersion</span></span><br><span class="line"><span class="string">00 03		// length</span></span><br><span class="line"><span class="string">01			// HeartbeatMessageType: 01-&gt;heartbeat_request  02-&gt;heartbeat_response</span></span><br><span class="line"><span class="string">40 00		// payload_length</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>因此rrec.data[0]对应的位置即为poc中的01，payload最终获取的值为：16384</p>
+<p>n2s宏的定义如下：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">((payload=(((<span class="type">unsigned</span> <span class="type">int</span>)(p[<span class="number">0</span>]))&lt;&lt; <span class="number">8</span>)| (((<span class="type">unsigned</span> <span class="type">int</span>)(p[<span class="number">1</span>])) )),p+=<span class="number">2</span>)</span><br></pre></td></tr></table></figure>
+
+<p>对应的数据内容为：p[0]-&gt;40、p[1]-&gt;00</p>
+<p>在关键的memcpy处，直接引用了payload的值进行复制</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="built_in">memcpy</span>(bp, pl, payload);</span><br></pre></td></tr></table></figure>
+
+<p>至此可以完美控制payload的大小，接着看pl指向的数据的范围</p>
+<p>pl指向SSLV3 Record结构体，数据大小为接收心跳包中的数据；<strong>此处因为未检测payload和接收的数据包的实际大小进行校验导致了越界的产生</strong></p>
+<p>通过dtls1_write_bytes函数将越界后的数据回传给客户端</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">r = dtls1_write_bytes(s, TLS1_RT_HEARTBEAT, buffer, <span class="number">3</span> + payload + padding);</span><br></pre></td></tr></table></figure>
+
+<p>TLS1_RT_HEARTBEAT=24，因此poc中也是通过检测接收数据的type是否为24来判定漏洞的存在</p>
+<p>poc中接收响应的逻辑：</p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line">hdr = recvall(s, <span class="number">5</span>)	// 接收<span class="number">5</span>个字节</span><br><span class="line">typ, ver, ln = struct.unpack(<span class="string">&#x27;&gt;BHH&#x27;</span>, hdr)	// 大端：<span class="number">1</span>字节、<span class="number">2</span>字节、<span class="number">2</span>字节</span><br><span class="line">pay = recvall(s, ln, <span class="number">10</span>)	</span><br><span class="line"><span class="keyword">return</span> typ, ver, pay</span><br></pre></td></tr></table></figure>
+
+<p>漏洞利用的流程：</p>
+<ul>
+<li>socket连接</li>
+<li>发送hello</li>
+<li>发送恶意的tls数据包</li>
+<li>接收响应判定是否存在漏洞</li>
+</ul>
+<p>至此漏洞的基本成因比较清楚了，但在没有poc的场景下，如何确定SSLV3数据结构在网络数据包中映射？</p>
+<h2 id="0x02-SSL-TLS协议"><a href="#0x02-SSL-TLS协议" class="headerlink" title="0x02 SSL/TLS协议"></a>0x02 SSL/TLS协议</h2><p>SSL/TLS协议在整个协议栈的中的位置如下图所示：</p>
+<img src="/2020/02/02/Heart-Bleed-Vul-Analysis/heart_bleed_2_1.png" class="">
+
+<p>可以看到协议分为两部分：TLS Record Subprotocol、Higher-layer Subprotocols</p>
+<p><strong>TLS Record Subprotocol(low-layer)</strong>： 会将Higher-layer的数据以&lt;=16k字节单位进行分割；将数据进行压缩、并添加Message Authentication Code，最后使用协商的cipher spec加密整个数据并添加SSL Record header，整个流程如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">-----------+</span><br><span class="line">  data   --+--------------&gt; 1. Fragment data</span><br><span class="line">-----------+</span><br><span class="line">                            +------------------------+</span><br><span class="line">                            |                        |</span><br><span class="line">                            |                        |</span><br><span class="line">                            +------------------------+</span><br><span class="line"></span><br><span class="line">                            2. Compress data (generally no compression applied)</span><br><span class="line"></span><br><span class="line">                            +------------------------+----+</span><br><span class="line">                            |                        |MAC | Add a Message Authentication Code</span><br><span class="line">                            |                        |    |</span><br><span class="line">                            +------------------------+----+</span><br><span class="line"></span><br><span class="line">                            3. Encrypt data</span><br><span class="line"></span><br><span class="line">                            +-----------------------------+</span><br><span class="line">                            |ciphertext                   |</span><br><span class="line">                            |                             |</span><br><span class="line">                            +-----------------------------+</span><br><span class="line"></span><br><span class="line">                            4. Add header</span><br><span class="line"></span><br><span class="line">                       +----+-----------------------------+</span><br><span class="line">            TLS Record |    |ciphertext                   | Add a TLS Record header</span><br><span class="line">              header   |    |                             |</span><br><span class="line">                       +----+-----------------------------+</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>最后将TLS Record传递给传输层进行发送；客户端和服务端都是使用这样的方式进行数据传递；</p>
+<p><strong>Record Protocol format</strong></p>
+<p>TLS Record header包含3个字段：</p>
+<ul>
+<li>Byte 0: TLS record type</li>
+<li>Bytes 1-2: TLS version (major/minor)</li>
+<li>Bytes 3-4: Length of data in the record (excluding the header itself). The maximum supported is 16384 (16K).</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">        record type (1 byte)</span><br><span class="line">       /</span><br><span class="line">      /    version (1 byte major, 1 byte minor)</span><br><span class="line">     /    /</span><br><span class="line">    /    /         length (2 bytes)</span><br><span class="line">   /    /         /</span><br><span class="line">+----+----+----+----+----+</span><br><span class="line">|    |    |    |    |    |</span><br><span class="line">|    |    |    |    |    | TLS Record header</span><br><span class="line">+----+----+----+----+----+</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Record Type Values       dec      hex</span><br><span class="line">-------------------------------------</span><br><span class="line">CHANGE_CIPHER_SPEC        20     0x14</span><br><span class="line">ALERT                     21     0x15</span><br><span class="line">HANDSHAKE                 22     0x16</span><br><span class="line">APPLICATION_DATA          23     0x17</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Version Values            dec     hex</span><br><span class="line">-------------------------------------</span><br><span class="line">SSL 3.0                   3,0  0x0300</span><br><span class="line">TLS 1.0                   3,1  0x0301</span><br><span class="line">TLS 1.1                   3,2  0x0302</span><br><span class="line">TLS 1.2                   3,3  0x0303</span><br></pre></td></tr></table></figure>
+
+<p><strong>Higher-layer Subprotocols</strong>: </p>
+<p>​    包括多种subprotocols：Handshake Protocol、ChangeCipherSpec protocol、Alert Protocol、Application Data Protocol等,这些协议数据会被上述的low-layer进行分割包装，需要注意的是一个TLS Record可以封装多个相同类型的message数据。这里以Handshake数据包为例，整个数据包的结构如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">                         |</span><br><span class="line">                         |</span><br><span class="line">                         |</span><br><span class="line">       Record Layer      |  Handshake Layer</span><br><span class="line">                         |                                  |</span><br><span class="line">                         |                                  |  ...more messages</span><br><span class="line">+----+----+----+----+----+----+----+----+----+------ - - - -+--</span><br><span class="line">| 22 |    |    |    |    |    |    |    |    |              |</span><br><span class="line">|0x16|    |    |    |    |    |    |    |    |message       |</span><br><span class="line">+----+----+----+----+----+----+----+----+----+------ - - - -+--</span><br><span class="line">  /               /      | \    \----\-----\                |</span><br><span class="line"> /               /       |  \         \</span><br><span class="line">type: 22        /        |   \         handshake message length</span><br><span class="line">               /              type</span><br><span class="line">              /</span><br><span class="line">         length: arbitrary (up to 16k)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"> Handshake Type Values    dec      hex</span><br><span class="line"> -------------------------------------</span><br><span class="line"> HELLO_REQUEST              0     0x00</span><br><span class="line"> CLIENT_HELLO               1     0x01</span><br><span class="line"> SERVER_HELLO               2     0x02</span><br><span class="line"> CERTIFICATE               11     0x0b</span><br><span class="line"> SERVER_KEY_EXCHANGE       12     0x0c</span><br><span class="line"> CERTIFICATE_REQUEST       13     0x0d</span><br><span class="line"> SERVER_DONE               14     0x0e</span><br><span class="line"> CERTIFICATE_VERIFY        15     0x0f</span><br><span class="line"> CLIENT_KEY_EXCHANGE       16     0x10</span><br><span class="line"> FINISHED                  20     0x14</span><br></pre></td></tr></table></figure>
+
+<p>整理目前的信息：</p>
+<p>s-&gt;s3-&gt;rrec的结构体为：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">ssl3_record_st</span></span></span><br><span class="line"><span class="class">	&#123;</span></span><br><span class="line"><span class="comment">/*r */</span>	<span class="type">int</span> type;               <span class="comment">/* type of record */</span></span><br><span class="line"><span class="comment">/*rw*/</span>	<span class="type">unsigned</span> <span class="type">int</span> length;    <span class="comment">/* How many bytes available */</span></span><br><span class="line"><span class="comment">/*r */</span>	<span class="type">unsigned</span> <span class="type">int</span> off;       <span class="comment">/* read/write offset into &#x27;buf&#x27; */</span></span><br><span class="line"><span class="comment">/*rw*/</span>	<span class="type">unsigned</span> <span class="type">char</span> *data;    <span class="comment">/* pointer to the record data */</span></span><br><span class="line"><span class="comment">/*rw*/</span>	<span class="type">unsigned</span> <span class="type">char</span> *input;   <span class="comment">/* where the decode bytes are */</span></span><br><span class="line"><span class="comment">/*r */</span>	<span class="type">unsigned</span> <span class="type">char</span> *comp;    <span class="comment">/* only used with decompression - malloc()ed */</span></span><br><span class="line"><span class="comment">/*r */</span>  <span class="type">unsigned</span> <span class="type">long</span> epoch;    <span class="comment">/* epoch number, needed by DTLS1 */</span></span><br><span class="line"><span class="comment">/*r */</span>  <span class="type">unsigned</span> <span class="type">char</span> seq_num[<span class="number">8</span>]; <span class="comment">/* sequence number, needed by DTLS1 */</span></span><br><span class="line">	&#125; SSL3_RECORD;</span><br></pre></td></tr></table></figure>
+
+<p>该数据结构对应的数据包的位置即为：前面的TLS Record包</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&amp;s-&gt;s3-&gt;rrec.data[0]</span><br></pre></td></tr></table></figure>
+
+<p>data字段则指向TLS Record所封装的message，即除去TLS Record header部分</p>
+<p>通过dtls1_process_heartbeat函数，整理最后的HeartBeat数据包格式如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">                         |</span><br><span class="line">                         |</span><br><span class="line">                         |</span><br><span class="line">       Record Layer      |  HeartBeat Layer</span><br><span class="line">                         |                                  |</span><br><span class="line">                         |                                  |  ...more HeartBeat messages</span><br><span class="line">+----+----+----+----+----+----+----+----+----+------ - - - -+--</span><br><span class="line">| 24 |    |    |    |    |    |    |    |                   |</span><br><span class="line">|0x18|    |    |    |    |    |    |    |     payload       |</span><br><span class="line">+----+----+----+----+----+----+----+----+----+------ - - - -+--</span><br><span class="line">  /               /      | \    \-------\                |</span><br><span class="line"> /               /       |  \         \</span><br><span class="line">type: 24        /        |   \         payload length</span><br><span class="line">               /              type</span><br><span class="line">              /</span><br><span class="line">         length: arbitrary (up to 16k)</span><br></pre></td></tr></table></figure>
+
+<p>由于server-&gt;client的数据包也是通过这样方式封装的</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">r = dtls1_write_bytes(s, TLS1_RT_HEARTBEAT, buffer, 3 + payload + padding);</span><br></pre></td></tr></table></figure>
+
+<p>回传的Record type为24，因此poc会检测该标记位来判定漏洞的触发</p>
+<h2 id="0x03-实践"><a href="#0x03-实践" class="headerlink" title="0x03 实践"></a>0x03 实践</h2><p>环境搭建碰到的问题：</p>
+<p>make install时出现如下错误：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">cms.pod around line 457: Expected text after =item, not a number </span><br></pre></td></tr></table></figure>
+
+<p>修复：root下将/usr/bin/pod2man重命名即可</p>
+<p>在调试时输出变量值的时候，提示：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&lt;value optimized out&gt;</span><br></pre></td></tr></table></figure>
+
+<p>修复：在编译时使用-d或者-O0</p>
+<p>生成自签证书和key</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">openssl req -newkey rsa:2048 -nodes -keyout rsa_private.key -x509 -days 365 -out cert.crt</span><br></pre></td></tr></table></figure>
+
+<p>测试openssl server端和openssl client端</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># server</span><br><span class="line">sudo ./openssl s_server -cert cert.crt -key rsa_private.key -www -port 443</span><br><span class="line"># client</span><br><span class="line">sudo ./openssl s_client -connect 127.0.0.1:443</span><br></pre></td></tr></table></figure>
+
+<p>调试记录：</p>
+<p>在tls1_process_heartbeat下断，此时可以观察到&amp;s-&gt;s3-&gt;rrec.data[0]所指向的数据：</p>
+<ul>
+<li>Type: 0x01 (heartbeat_request)</li>
+<li>Payload_length: 0x40 0x00</li>
+</ul>
+<p>同时rrec.length表明实际接收Record的数据大小：3字节</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Breakpoint 1, tls1_process_heartbeat (s=0x955950) at t1_lib.c:2556</span><br><span class="line">2556		unsigned char *p = &amp;s-&gt;s3-&gt;rrec.data[0], *pl;</span><br><span class="line">(gdb) p s-&gt;s3-&gt;rrec.length		/* Record的实际大小 */</span><br><span class="line">$1 = 3</span><br><span class="line">(gdb) n</span><br><span class="line">2559		unsigned int padding = 16; /* Use minimum padding */</span><br><span class="line">(gdb) p p</span><br><span class="line">$1 = (unsigned char *) 0x966568 &quot;\001@&quot;</span><br><span class="line">(gdb) x/32b p</span><br><span class="line">					type  |pay_leng| </span><br><span class="line">0x966568:	0x01	0x40	0x00	0xd8	0x03	0x02	0x53	0x43</span><br><span class="line">0x966570:	0x5b	0x90	0x9d	0x9b	0x72	0x0b	0xbc	0x0c</span><br><span class="line">0x966578:	0xbc	0x2b	0x92	0xa8	0x48	0x97	0xcf	0xbd</span><br><span class="line">0x966580:	0x39	0x04	0xcc	0x16	0x0a	0x85	0x03	0x90</span><br></pre></td></tr></table></figure>
+
+<p>可以看到获取到的payload的值为：16384</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">(gdb) n</span><br><span class="line">2563		n2s(p, payload);</span><br><span class="line">(gdb) n</span><br><span class="line">2564		pl = p;</span><br><span class="line">(gdb) p payload</span><br><span class="line">$3 = 16384</span><br></pre></td></tr></table></figure>
+
+<p>最后在执行memcpy时，pl指向的数据如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">(gdb) n</span><br><span class="line">2586			memcpy(bp, pl, payload);</span><br><span class="line">(gdb) x/32b pl</span><br><span class="line">0x96656b:	0xd8	0x03	0x02	0x53	0x43	0x5b	0x90	0x9d</span><br><span class="line">0x966573:	0x9b	0x72	0x0b	0xbc	0x0c	0xbc	0x2b	0x92</span><br><span class="line">0x96657b:	0xa8	0x48	0x97	0xcf	0xbd	0x39	0x04	0xcc</span><br><span class="line">0x966583:	0x16	0x0a	0x85	0x03	0x90	0x9f	0x77	0x04</span><br></pre></td></tr></table></figure>
+
+<p>通过poc调试总结得出：</p>
+<p>​    由于传入的heartbeat请求长度只包含type+lenght：3字节，因此在服务器的内存区域中读取完type、payload_length后的数据都是越界的数据，此时通过memcpy会泄漏payload长度的越界数据数据</p>
+<h2 id="0x04-漏洞修复"><a href="#0x04-漏洞修复" class="headerlink" title="0x04 漏洞修复"></a>0x04 漏洞修复</h2><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Read type and payload length first */</span></span><br><span class="line"><span class="keyword">if</span> (<span class="number">1</span> + <span class="number">2</span> + <span class="number">16</span> &gt; s-&gt;s3-&gt;rrec.length)</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>; <span class="comment">/* silently discard */</span></span><br><span class="line">hbtype = *p++;</span><br><span class="line">n2s(p, payload);</span><br><span class="line"><span class="keyword">if</span> (<span class="number">1</span> + <span class="number">2</span> + payload + <span class="number">16</span> &gt; s-&gt;s3-&gt;rrec.length)</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>; <span class="comment">/* silently discard per RFC 6520 sec. 4 */</span></span><br><span class="line">pl = p;</span><br></pre></td></tr></table></figure>
+
+<p>添加了两层判断：</p>
+<ul>
+<li>如果Record的长度只包含type、payload length、padding，但未包含实际的record数据，则直接丢弃</li>
+<li>字段中的payload length如果大于实际接收的数据大小，则直接丢弃</li>
+</ul>
+<h2 id="0x05-总结"><a href="#0x05-总结" class="headerlink" title="0x05 总结"></a>0x05 总结</h2><p>这里分析了漏洞的成因，以及相关的数据结构如何在数据包中映射；</p>
+<p>漏洞的原理相对比较简单，但是要找到相关数据结构在网络数据包中的位置是比较困难的，如果没有前人的分析做参考，那可能需要去通过源码、官方文档去找答案</p>
+<p>后来发现可以直接通过<a target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc5246#section-6.2.1">rfc中的TLS协议标准</a>获取整个流程、各个子协议的格式等信息；</p>
+<p>参考： </p>
+<p><a target="_blank" rel="noopener" href="https://yaofeifly.github.io/2017/04/07/heartbleed/">https://yaofeifly.github.io/2017/04/07/heartbleed/</a></p>
+<p><a target="_blank" rel="noopener" href="http://blog.fourthbit.com/2014/12/23/traffic-analysis-of-an-ssl-slash-tls-session/">http://blog.fourthbit.com/2014/12/23/traffic-analysis-of-an-ssl-slash-tls-session/</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.ibm.com/support/knowledgecenter/SSB23S_1.1.0.12/gtps7/s5rcd.html">https://www.ibm.com/support/knowledgecenter/SSB23S_1.1.0.12/gtps7/s5rcd.html</a></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/category/">Category</a></li>
+         
+          <li><a href="/tag/">Tag</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x00-%E5%89%8D%E8%A8%80%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">0x00 前言：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x01-%E6%BC%8F%E6%B4%9E%E6%88%90%E5%9B%A0"><span class="toc-number">2.</span> <span class="toc-text">0x01 漏洞成因</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x02-SSL-TLS%E5%8D%8F%E8%AE%AE"><span class="toc-number">3.</span> <span class="toc-text">0x02 SSL&#x2F;TLS协议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x03-%E5%AE%9E%E8%B7%B5"><span class="toc-number">4.</span> <span class="toc-text">0x03 实践</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x04-%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-number">5.</span> <span class="toc-text">0x04 漏洞修复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x05-%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">0x05 总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&text=Heart Bleed漏洞分析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&is_video=false&description=Heart Bleed漏洞分析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Heart Bleed漏洞分析&body=Check out this article: http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&title=Heart Bleed漏洞分析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&name=Heart Bleed漏洞分析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2020/02/02/Heart-Bleed-Vul-Analysis/&t=Heart Bleed漏洞分析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2017-2022
+    PENCH3R
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/category/">Category</a></li><!--
+     --><!--
+       --><li><a href="/tag/">Tag</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+  <script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js" crossorigin="anonymous"></script>
+  
+<script src="/js/wrapImage.js"></script>
+
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+
+</body>
+</html>
